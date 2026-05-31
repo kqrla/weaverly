@@ -762,6 +762,60 @@ function weaveToSvg(draft: WeaveDraft, cellSize: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f0e9d8"/>${warpBg}${threads}</svg>`;
 }
 
+// vector export of the lace network — mirrors LaceCanvas exactly so the
+// downloaded file is byte-equivalent to what's drawn on screen.
+function laceToSvg(g: LaceGraph, size: number): string {
+  const margin = 30;
+  const inner = size - margin * 2;
+  const ink = "#262532";
+  const ember = "#2a3a6a";
+  const stripe = "#a8b0c2";
+  const to = (n: { x: number; y: number; radius: number }) => ({
+    x: margin + ((n.x + 1) / 2) * inner,
+    y: margin + ((n.y + 1) / 2) * inner,
+    r: n.radius * inner,
+  });
+  const nodesById = new Map(g.nodes.map((n) => [n.id, n]));
+  let threads = "";
+  for (const e of g.edges) {
+    const a = nodesById.get(e.a);
+    const c = nodesById.get(e.b);
+    if (!a || !c) continue;
+    const A = to(a);
+    const C = to(c);
+    if (e.c1 && e.c2) {
+      const C1 = { x: margin + ((e.c1.x + 1) / 2) * inner, y: margin + ((e.c1.y + 1) / 2) * inner };
+      const C2 = { x: margin + ((e.c2.x + 1) / 2) * inner, y: margin + ((e.c2.y + 1) / 2) * inner };
+      threads += `<path d="M${A.x},${A.y} C${C1.x},${C1.y} ${C2.x},${C2.y} ${C.x},${C.y}" fill="none" stroke="${ink}" stroke-opacity="0.8" stroke-width="1.1" stroke-linecap="round"/>`;
+    } else {
+      threads += `<line x1="${A.x}" y1="${A.y}" x2="${C.x}" y2="${C.y}" stroke="${ink}" stroke-opacity="0.8" stroke-width="1.1" stroke-linecap="round"/>`;
+    }
+  }
+  let nodes = "";
+  for (const n of g.nodes) {
+    const N = to(n);
+    if (n.kind === "loop") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="none" stroke="${ink}" stroke-width="1.2"/>`;
+    } else if (n.kind === "petal") {
+      const ang = Math.atan2(n.y, n.x);
+      const ux = Math.cos(ang), uy = Math.sin(ang);
+      const len = N.r * 2.2, wid = N.r * 0.9;
+      const tipX = N.x + ux * len, tipY = N.y + uy * len;
+      const baseX = N.x - ux * len * 0.2, baseY = N.y - uy * len * 0.2;
+      const px = -uy * wid, py = ux * wid;
+      nodes += `<path d="M${baseX},${baseY} Q${N.x + px},${N.y + py} ${tipX},${tipY} Q${N.x - px},${N.y - py} ${baseX},${baseY} Z" fill="${ember}" fill-opacity="0.7" stroke="${ink}" stroke-width="0.8"/>`;
+    } else if (n.kind === "leaf") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="${stripe}" stroke="${ink}" stroke-width="0.8"/>`;
+    } else if (n.kind === "center") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="none" stroke="${ink}" stroke-width="1.2"/><circle cx="${N.x}" cy="${N.y}" r="${N.r * 0.4}" fill="${ember}"/>`;
+    } else {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${Math.max(1.2, N.r * 0.7)}" fill="${ink}"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="100%" height="100%" fill="#f0e9d8"/>${threads}${nodes}</svg>`;
+}
+
+
 
 function slug(t: string) {
   return (t || "untitled").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32) || "untitled";
