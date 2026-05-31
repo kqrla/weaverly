@@ -45,7 +45,7 @@ function About() {
         <div className="card-dashed mt-10 p-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink/65">made with</p>
           <p className="mt-3 font-display text-2xl italic text-ink">
-            cream paper, sky-blue stripe, ember-red ink, and a deterministic prng small enough to fit in a pocket.
+            cream paper, sky-blue stripe, deep navy ink, and a deterministic prng small enough to fit in a pocket.
           </p>
         </div>
         <Link to="/studio" className="btn-ember mt-4">open the studio →</Link>
