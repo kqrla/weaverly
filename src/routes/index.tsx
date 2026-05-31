@@ -7,7 +7,11 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "weaverly — turn words into living textile pattern" },
-      { name: "description", content: "weaverly is a tiny browser loom. type rose, heart, moon, mountain — and watch it bloom in ascii, cross-stitch, woven, lace, and beadwork." },
+      {
+        name: "description",
+        content:
+          "weaverly is a tiny browser loom. type rose, heart, moon, mountain — and watch it bloom in ascii, cross-stitch, woven, lace, and beadwork.",
+      },
       { property: "og:title", content: "weaverly — turn words into living textiles" },
       { property: "og:description", content: "type rose, heart, moon — watch it bloom as textile." },
     ],
@@ -22,8 +26,13 @@ function MiniGrid({ seed }: { seed: string }) {
     return () => clearInterval(id);
   }, []);
   const { grid } = generate({
-    text: seed, style: "cross-stitch", density: 0.9, symmetry: "none",
-    cols: 22, rows: 14, paletteIndex: 0,
+    text: seed,
+    style: "cross-stitch",
+    density: 0.9,
+    symmetry: "none",
+    cols: 22,
+    rows: 14,
+    paletteIndex: 0,
   });
   const total = grid.length * grid[0].length;
   const shown = (phase * 6) % (total + 80);
@@ -47,16 +56,18 @@ function Index() {
             <h1 className="mt-6 font-display text-5xl leading-[1.05] text-ink sm:text-6xl">
               a small browser loom for any word <br className="hidden sm:block" /> you'd like to turn into cloth:
             </h1>
-            <p className="mt-8 font-display text-4xl italic sm:text-6xl">
-              <span className="marker">"type a rose, see a rose."</span>
-            </p>
             <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-ink/75">
-              weaverly listens to your word, recognises a shape — rose, heart, moon, mountain, butterfly — and weaves it,
-              one stitch at a time, in ascii, cross-stitch, woven, lace, or beadwork.
+              weaverly listens to your word, recognises a shape — rose, heart, moon, mountain, butterfly — and weaves
+              it, one stitch at a time, in ascii, cross-stitch, woven, lace, or beadwork.
             </p>
             <div className="mt-10 flex flex-wrap justify-center gap-3">
-              <Link to="/studio" className="btn-ember">enter the studio</Link>
-              <Link to="/features" className="rounded-md border border-ink px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] hover:bg-stripe/40">
+              <Link to="/studio" className="btn-ember">
+                enter the studio
+              </Link>
+              <Link
+                to="/features"
+                className="rounded-md border border-ink px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] hover:bg-stripe/40"
+              >
                 see what it weaves →
               </Link>
             </div>
@@ -70,9 +81,21 @@ function Index() {
       <section className="mx-auto max-w-7xl px-6 py-24">
         <div className="grid gap-8 md:grid-cols-3">
           {[
-            { seed: "rose", title: "words become shapes", body: "type rose and a rose blooms. type heart and a heart appears. type moon and a crescent rises. weaverly interprets the word, then weaves the shape." },
-            { seed: "star", title: "stitches you can choose", body: "the same shape lives differently in each stitch — ascii dots, cross-stitch x's, woven blocks, lace florals, or beaded circles. pick the cloth that fits the word." },
-            { seed: "butterfly", title: "made to be kept", body: "every weave can be paused, copied as plain ascii, or exported as svg — small enough to print, embroider, or paste into a letter." },
+            {
+              seed: "rose",
+              title: "words become shapes",
+              body: "type rose and a rose blooms. type heart and a heart appears. type moon and a crescent rises. weaverly interprets the word, then weaves the shape.",
+            },
+            {
+              seed: "star",
+              title: "stitches you can choose",
+              body: "the same shape lives differently in each stitch — ascii dots, cross-stitch x's, woven blocks, lace florals, or beaded circles. pick the cloth that fits the word.",
+            },
+            {
+              seed: "butterfly",
+              title: "made to be kept",
+              body: "every weave can be paused, copied as plain ascii, or exported as svg — small enough to print, embroider, or paste into a letter.",
+            },
           ].map((card) => (
             <article key={card.seed} className="card-dashed animate-fade-up p-6">
               <div className="mb-5 overflow-hidden rounded-lg border border-ink/30 bg-background p-3">
