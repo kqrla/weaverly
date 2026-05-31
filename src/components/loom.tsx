@@ -623,6 +623,43 @@ function chartToSvg(chart: CrossStitchChart, cellSize: number): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f5efe1"/>${lattice}${stitches}</svg>`;
 }
 
+// vector export of a woven cloth — mirrors WeaveGrid's rendering rules
+// so the file matches what the user sees on screen.
+function weaveToSvg(draft: WeaveDraft, cellSize: number): string {
+  const w = draft.cols * cellSize;
+  const h = draft.rows * cellSize;
+  const colorVar: Record<string, string> = {
+    ink: "#262532",
+    ember: "#2a3a6a",
+    stripe: "#7a8aa6",
+    background: "#f5efe1",
+    accent: "#e6c14a",
+  };
+  let warpBg = "";
+  for (let x = 0; x < draft.cols; x++) {
+    const c = draft.warpColors[x];
+    warpBg += `<line x1="${x * cellSize + cellSize / 2}" y1="0" x2="${x * cellSize + cellSize / 2}" y2="${h}" stroke="${colorVar[c.token]}" stroke-opacity="0.18" stroke-width="${Math.max(0.6, cellSize * 0.08)}"/>`;
+  }
+  const inset = Math.max(0.5, cellSize * 0.04);
+  let threads = "";
+  for (let y = 0; y < draft.rows; y++) {
+    for (let x = 0; x < draft.cols; x++) {
+      const role = draft.cell[y][x];
+      if (role === "warp") {
+        const c = draft.warpColors[x];
+        const tw = cellSize * (0.55 + c.weight * 0.35);
+        threads += `<rect x="${x * cellSize + (cellSize - tw) / 2}" y="${y * cellSize - inset}" width="${tw}" height="${cellSize + inset * 2}" rx="${tw * 0.25}" fill="${colorVar[c.token]}"/>`;
+      } else {
+        const c = draft.weftColors[y];
+        const tw = cellSize * (0.55 + c.weight * 0.35);
+        threads += `<rect x="${x * cellSize - inset}" y="${y * cellSize + (cellSize - tw) / 2}" width="${cellSize + inset * 2}" height="${tw}" rx="${tw * 0.25}" fill="${colorVar[c.token]}"/>`;
+      }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f0e9d8"/>${warpBg}${threads}</svg>`;
+}
+
+
 function slug(t: string) {
   return (t || "untitled").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32) || "untitled";
 }
