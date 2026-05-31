@@ -4,8 +4,11 @@
 // use the legacy ascii grid until their own engines land.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
+import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
@@ -30,22 +33,58 @@ export function Loom() {
 
   const isCrossStitch = style === "cross-stitch";
 
+  // debounce the seed word for the ai call only — local generation
+  // still updates instantly so the chart remains responsive while
+  // the bitmap is in flight.
+  const [debouncedText, setDebouncedText] = useState(text);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedText(text.trim()), 350);
+    return () => clearTimeout(id);
+  }, [text]);
+
   // legacy ascii engine — used by every non-cross-stitch mode (for now).
   const asciiResult = useMemo(
     () => generate({ text, style, density, symmetry, cols, rows, paletteIndex }),
     [text, style, density, symmetry, cols, rows, paletteIndex],
   );
 
+  // ask the model to silhouette any word the local SHAPE catalog
+  // doesn't already know. SUPPORTED_WORDS is the gate — if the word
+  // is already recognised we don't burn a request.
+  const callInterpret = useServerFn(interpretShape);
+  const needsAi =
+    isCrossStitch &&
+    debouncedText.length > 0 &&
+    !SUPPORTED_WORDS.includes(debouncedText) &&
+    !SUPPORTED_WORDS.some((w) => debouncedText.split(/[^a-z]+/).includes(w));
+
+  const bitmapQuery = useQuery({
+    queryKey: ["shape-bitmap", debouncedText],
+    queryFn: () => callInterpret({ data: { word: debouncedText } }),
+    enabled: needsAi,
+    staleTime: 1000 * 60 * 60,
+    retry: 1,
+  });
+
   // dedicated cross-stitch engine — strict lattice, motif tiling, hem.
   const chart: CrossStitchChart | null = useMemo(
     () =>
       isCrossStitch
-        ? generateCrossStitch({ text, cols, rows, density, symmetry, borderStyle })
+        ? generateCrossStitch({
+            text,
+            cols,
+            rows,
+            density,
+            symmetry,
+            borderStyle,
+            bitmap: bitmapQuery.data ?? null,
+          })
         : null,
-    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle],
+    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
   const shapeKey = isCrossStitch ? chart!.shapeKey : asciiResult.shapeKey;
+  const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch ? cols * rows : asciiResult.grid.flat().length;
 
   useEffect(() => {
@@ -104,7 +143,7 @@ export function Loom() {
         }
       }
     }
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="oklch(0.965 0.025 85)"/><g fill="oklch(0.66 0.19 35)">${nodes}</g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="oklch(0.965 0.025 85)"/><g fill="oklch(0.28 0.08 255)">${nodes}</g></svg>`;
     download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
   };
 
@@ -128,8 +167,17 @@ export function Loom() {
           <p className="mt-2 text-[11px] leading-snug text-ink/65">
             {shapeKey ? (
               <>
-                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched in
-                your chosen mode.
+                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched
+                from the built-in shape library.
+              </>
+            ) : isCrossStitch && bitmapQuery.isFetching ? (
+              <>asking the loom to silhouette <span className="font-medium">{debouncedText}</span>…</>
+            ) : isCrossStitch && bitmapQuery.isError ? (
+              <>couldn't interpret that word right now. weaving a sampler from the letters instead.</>
+            ) : isCrossStitch && chartSource === "bitmap" ? (
+              <>
+                interpreted as <span className="marker font-medium">{debouncedText}</span> — silhouette
+                drafted on the fly and snapped to the lattice.
               </>
             ) : (
               <>no shape match. a procedural sampler will be charted from the letters instead.</>
@@ -363,7 +411,7 @@ export function Loom() {
 
         <div className="card-dashed p-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/70">
-            words the loom knows
+            shortcuts the loom knows by heart
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {SUPPORTED_WORDS.map((w) => (
@@ -377,8 +425,9 @@ export function Loom() {
             ))}
           </div>
           <p className="mt-3 text-xs text-ink/65">
-            type anything else and weaverly will fall back to a procedural sampler seeded by your
-            letters — the chart is still strictly lattice-aligned.
+            type any other word — kite, octopus, lantern, mushroom — and the loom drafts a fresh
+            silhouette of that thing, then snaps it to the lattice. it never weaves the letters of
+            your word, only its meaning.
           </p>
         </div>
       </div>
@@ -424,7 +473,7 @@ function chartToSvg(chart: CrossStitchChart, cellSize: number): string {
   const h = chart.rows * cellSize;
   const colorVar = {
     ink: "#262532",
-    ember: "#c45a2a",
+    ember: "#2a3a6a",
     stripe: "#7a8aa6",
   } as const;
   let lattice = "";
