@@ -9,9 +9,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
+import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
+import { LaceCanvas } from "@/components/lace-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
@@ -34,10 +36,15 @@ export function Loom() {
   const [showLattice, setShowLattice] = useState(true);
   const [weaveType, setWeaveType] = useState<WeaveType | "auto">("auto");
   const [showLoomGrid, setShowLoomGrid] = useState(false);
+  const [laceFamily, setLaceFamily] = useState<LaceFamily | "auto">("auto");
+  const [laceSize, setLaceSize] = useState(560);
+  const [showLaceNodes, setShowLaceNodes] = useState(true);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
+  const isLace = style === "lace";
+
 
 
   // debounce the seed word for the ai call only — local generation
