@@ -8,10 +8,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
+import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
+import { WeaveGrid } from "@/components/weave-grid";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
+
 
 export function Loom() {
   const [text, setText] = useState("rose");
@@ -29,9 +32,13 @@ export function Loom() {
   const [borderStyle, setBorderStyle] = useState<BorderStyle>("diamond");
   const [cellSize, setCellSize] = useState(22);
   const [showLattice, setShowLattice] = useState(true);
+  const [weaveType, setWeaveType] = useState<WeaveType | "auto">("auto");
+  const [showLoomGrid, setShowLoomGrid] = useState(false);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
+  const isWoven = style === "woven";
+
 
   // debounce the seed word for the ai call only — local generation
   // still updates instantly so the chart remains responsive while
@@ -83,13 +90,30 @@ export function Loom() {
     [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : asciiResult.shapeKey;
+  // dedicated weaving engine — loom draft + warp/weft simulation.
+  const draft: WeaveDraft | null = useMemo(
+    () =>
+      isWoven
+        ? generateWeave({
+            text,
+            cols,
+            rows,
+            density,
+            symmetry,
+            weave: weaveType === "auto" ? undefined : weaveType,
+          })
+        : null,
+    [isWoven, text, cols, rows, density, symmetry, weaveType],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
-  const total = isCrossStitch ? cols * rows : asciiResult.grid.flat().length;
+  const total = isCrossStitch || isWoven ? cols * rows : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType]);
+
 
   useEffect(() => {
     if (!playing) return;
@@ -104,9 +128,9 @@ export function Loom() {
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for non-cross-stitch modes
+  // ascii display string for legacy (ascii/lace/beadwork) modes
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch) return "";
+    if (isCrossStitch || isWoven) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -118,10 +142,14 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
-    const content = isCrossStitch ? chartToAscii(chart!) : gridToString(asciiResult.grid);
+    const content = isCrossStitch
+      ? chartToAscii(chart!)
+      : isWoven
+        ? draftToAscii(draft!)
+        : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -131,6 +159,12 @@ export function Loom() {
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
+    if (isWoven && draft) {
+      const svg = weaveToSvg(draft, cellSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+
     const cell = 18;
     const w = cols * cell;
     const h = rows * cell;
@@ -150,9 +184,14 @@ export function Loom() {
   const exportTxt = () =>
     download(
       `weaverly-${slug(text)}.txt`,
-      isCrossStitch ? chartToAscii(chart!) : gridToString(asciiResult.grid),
+      isCrossStitch
+        ? chartToAscii(chart!)
+        : isWoven
+          ? draftToAscii(draft!)
+          : gridToString(asciiResult.grid),
       "text/plain",
     );
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
@@ -201,13 +240,14 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && (
+          {!isCrossStitch && !isWoven && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              only the cross-stitch engine is rebuilt so far. ascii/woven/lace/beadwork still use
-              the legacy glyph grid and will be replaced with their own grammars next.
+              ascii/lace/beadwork still use the legacy glyph grid and will be replaced with
+              their own grammars next.
             </p>
           )}
         </Field>
+
 
         <Field label={`density · ${(density * 100).toFixed(0)}%`}>
           <input
@@ -279,6 +319,55 @@ export function Loom() {
             </label>
           </>
         )}
+
+        {isWoven && (
+          <>
+            <Field label="weave structure">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "plain", "twill", "basket", "satin", "herringbone", "diamond", "jacquard"] as const).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setWeaveType(w)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      weaveType === w
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+              {draft && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  loom drafted on <span className="marker font-medium">{draft.shafts}</span> shafts ·
+                  weave <span className="marker font-medium">{draft.weave}</span> · seed
+                  {" "}<span className="font-mono">{draft.seedWord}</span>
+                </p>
+              )}
+            </Field>
+            <Field label={`thread size · ${cellSize}px`}>
+              <input
+                type="range"
+                min={6}
+                max={28}
+                value={cellSize}
+                onChange={(e) => setCellSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showLoomGrid}
+                onChange={(e) => setShowLoomGrid(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show loom draft grid
+            </label>
+          </>
+        )}
+
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={`cols · ${cols}`}>
@@ -398,6 +487,15 @@ export function Loom() {
                 showLattice={showLattice}
               />
             </div>
+          ) : isWoven && draft ? (
+            <div className="flex items-center justify-center overflow-auto p-6">
+              <WeaveGrid
+                draft={draft}
+                revealed={revealed}
+                cellSize={cellSize}
+                showLoomGrid={showLoomGrid}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
@@ -407,6 +505,7 @@ export function Loom() {
               {asciiDisplay}
             </pre>
           )}
+
         </div>
 
         <div className="card-dashed p-5">
@@ -523,6 +622,43 @@ function chartToSvg(chart: CrossStitchChart, cellSize: number): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f5efe1"/>${lattice}${stitches}</svg>`;
 }
+
+// vector export of a woven cloth — mirrors WeaveGrid's rendering rules
+// so the file matches what the user sees on screen.
+function weaveToSvg(draft: WeaveDraft, cellSize: number): string {
+  const w = draft.cols * cellSize;
+  const h = draft.rows * cellSize;
+  const colorVar: Record<string, string> = {
+    ink: "#262532",
+    ember: "#2a3a6a",
+    stripe: "#7a8aa6",
+    background: "#f5efe1",
+    accent: "#e6c14a",
+  };
+  let warpBg = "";
+  for (let x = 0; x < draft.cols; x++) {
+    const c = draft.warpColors[x];
+    warpBg += `<line x1="${x * cellSize + cellSize / 2}" y1="0" x2="${x * cellSize + cellSize / 2}" y2="${h}" stroke="${colorVar[c.token]}" stroke-opacity="0.18" stroke-width="${Math.max(0.6, cellSize * 0.08)}"/>`;
+  }
+  const inset = Math.max(0.5, cellSize * 0.04);
+  let threads = "";
+  for (let y = 0; y < draft.rows; y++) {
+    for (let x = 0; x < draft.cols; x++) {
+      const role = draft.cell[y][x];
+      if (role === "warp") {
+        const c = draft.warpColors[x];
+        const tw = cellSize * (0.55 + c.weight * 0.35);
+        threads += `<rect x="${x * cellSize + (cellSize - tw) / 2}" y="${y * cellSize - inset}" width="${tw}" height="${cellSize + inset * 2}" rx="${tw * 0.25}" fill="${colorVar[c.token]}"/>`;
+      } else {
+        const c = draft.weftColors[y];
+        const tw = cellSize * (0.55 + c.weight * 0.35);
+        threads += `<rect x="${x * cellSize - inset}" y="${y * cellSize + (cellSize - tw) / 2}" width="${cellSize + inset * 2}" height="${tw}" rx="${tw * 0.25}" fill="${colorVar[c.token]}"/>`;
+      }
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f0e9d8"/>${warpBg}${threads}</svg>`;
+}
+
 
 function slug(t: string) {
   return (t || "untitled").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32) || "untitled";
