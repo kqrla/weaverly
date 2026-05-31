@@ -184,9 +184,14 @@ export function Loom() {
   const exportTxt = () =>
     download(
       `weaverly-${slug(text)}.txt`,
-      isCrossStitch ? chartToAscii(chart!) : gridToString(asciiResult.grid),
+      isCrossStitch
+        ? chartToAscii(chart!)
+        : isWoven
+          ? draftToAscii(draft!)
+          : gridToString(asciiResult.grid),
       "text/plain",
     );
+
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
