@@ -90,13 +90,30 @@ export function Loom() {
     [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : asciiResult.shapeKey;
+  // dedicated weaving engine — loom draft + warp/weft simulation.
+  const draft: WeaveDraft | null = useMemo(
+    () =>
+      isWoven
+        ? generateWeave({
+            text,
+            cols,
+            rows,
+            density,
+            symmetry,
+            weave: weaveType === "auto" ? undefined : weaveType,
+          })
+        : null,
+    [isWoven, text, cols, rows, density, symmetry, weaveType],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
-  const total = isCrossStitch ? cols * rows : asciiResult.grid.flat().length;
+  const total = isCrossStitch || isWoven ? cols * rows : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType]);
+
 
   useEffect(() => {
     if (!playing) return;
