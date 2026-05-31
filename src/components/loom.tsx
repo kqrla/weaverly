@@ -32,9 +32,13 @@ export function Loom() {
   const [borderStyle, setBorderStyle] = useState<BorderStyle>("diamond");
   const [cellSize, setCellSize] = useState(22);
   const [showLattice, setShowLattice] = useState(true);
+  const [weaveType, setWeaveType] = useState<WeaveType | "auto">("auto");
+  const [showLoomGrid, setShowLoomGrid] = useState(false);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
+  const isWoven = style === "woven";
+
 
   // debounce the seed word for the ai call only — local generation
   // still updates instantly so the chart remains responsive while
