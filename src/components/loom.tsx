@@ -411,7 +411,7 @@ export function Loom() {
 
         <div className="card-dashed p-5">
           <p className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink/70">
-            words the loom knows
+            shortcuts the loom knows by heart
           </p>
           <div className="mt-3 flex flex-wrap gap-1.5">
             {SUPPORTED_WORDS.map((w) => (
@@ -425,8 +425,9 @@ export function Loom() {
             ))}
           </div>
           <p className="mt-3 text-xs text-ink/65">
-            type anything else and weaverly will fall back to a procedural sampler seeded by your
-            letters — the chart is still strictly lattice-aligned.
+            type any other word — kite, octopus, lantern, mushroom — and the loom drafts a fresh
+            silhouette of that thing, then snaps it to the lattice. it never weaves the letters of
+            your word, only its meaning.
           </p>
         </div>
       </div>
