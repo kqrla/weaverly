@@ -113,31 +113,53 @@ export function Loom() {
     [isWoven, text, cols, rows, density, symmetry, weaveType],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven ? null : asciiResult.shapeKey;
+  // dedicated lace engine — connected network of loops/knots/threads.
+  const lace: LaceGraph | null = useMemo(
+    () =>
+      isLace
+        ? generateLace({
+            text,
+            density,
+            symmetry,
+            family: laceFamily === "auto" ? undefined : laceFamily,
+          })
+        : null,
+    [isLace, text, density, symmetry, laceFamily],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
-  const total = isCrossStitch || isWoven ? cols * rows : asciiResult.grid.flat().length;
+  const total = isCrossStitch || isWoven
+    ? cols * rows
+    : isLace
+      ? (lace?.edges.length ?? 0)
+      : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      setRevealed((r) => (r >= total ? r : Math.min(total, r + speed)));
+      // lace blooms more slowly than a stitch ticks, so we throttle the
+      // step when in lace mode — otherwise the whole network appears in
+      // a single frame on small graphs.
+      const step = isLace ? Math.max(1, Math.round(speed / 6)) : speed;
+      setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total, speed]);
+  }, [playing, total, speed, isLace]);
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for legacy (ascii/lace/beadwork) modes
+  // ascii display string for legacy (ascii/beadwork) modes
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven) return "";
+    if (isCrossStitch || isWoven || isLace) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -149,14 +171,16 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
       ? chartToAscii(chart!)
       : isWoven
         ? draftToAscii(draft!)
-        : gridToString(asciiResult.grid);
+        : isLace
+          ? laceToAscii(lace!)
+          : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -168,6 +192,11 @@ export function Loom() {
     }
     if (isWoven && draft) {
       const svg = weaveToSvg(draft, cellSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isLace && lace) {
+      const svg = laceToSvg(lace, laceSize);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -195,9 +224,12 @@ export function Loom() {
         ? chartToAscii(chart!)
         : isWoven
           ? draftToAscii(draft!)
-          : gridToString(asciiResult.grid),
+          : isLace
+            ? laceToAscii(lace!)
+            : gridToString(asciiResult.grid),
       "text/plain",
     );
+
 
 
   return (
