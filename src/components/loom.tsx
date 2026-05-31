@@ -408,6 +408,58 @@ export function Loom() {
           </>
         )}
 
+        {isLace && (
+          <>
+            <Field label="lace family">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "doily", "crochet", "tatting", "bobbin", "floral", "geometric"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setLaceFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      laceFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {lace && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  grown as <span className="marker font-medium">{lace.family}</span> ·
+                  {" "}<span className="marker font-medium">{lace.symmetryOrder}</span>-fold ·
+                  {" "}{lace.rings} rings · {lace.nodes.length} nodes ·
+                  {" "}{lace.edges.length} threads
+                </p>
+              )}
+            </Field>
+            <Field label={`canvas size · ${laceSize}px`}>
+              <input
+                type="range"
+                min={360}
+                max={760}
+                step={20}
+                value={laceSize}
+                onChange={(e) => setLaceSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showLaceNodes}
+                onChange={(e) => setShowLaceNodes(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show loops &amp; knots
+            </label>
+          </>
+        )}
+
+
+
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={`cols · ${cols}`}>
