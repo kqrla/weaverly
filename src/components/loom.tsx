@@ -240,13 +240,14 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && (
+          {!isCrossStitch && !isWoven && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              only the cross-stitch engine is rebuilt so far. ascii/woven/lace/beadwork still use
-              the legacy glyph grid and will be replaced with their own grammars next.
+              ascii/lace/beadwork still use the legacy glyph grid and will be replaced with
+              their own grammars next.
             </p>
           )}
         </Field>
+
 
         <Field label={`density · ${(density * 100).toFixed(0)}%`}>
           <input
