@@ -143,7 +143,7 @@ export function Loom() {
         }
       }
     }
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="oklch(0.965 0.025 85)"/><g fill="oklch(0.66 0.19 35)">${nodes}</g></svg>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="oklch(0.965 0.025 85)"/><g fill="oklch(0.28 0.08 255)">${nodes}</g></svg>`;
     download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
   };
 
