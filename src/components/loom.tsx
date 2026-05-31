@@ -473,7 +473,7 @@ function chartToSvg(chart: CrossStitchChart, cellSize: number): string {
   const h = chart.rows * cellSize;
   const colorVar = {
     ink: "#262532",
-    ember: "#c45a2a",
+    ember: "#2a3a6a",
     stripe: "#7a8aa6",
   } as const;
   let lattice = "";
