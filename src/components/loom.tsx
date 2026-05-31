@@ -587,7 +587,9 @@ export function Loom() {
                 cellSize={cellSize}
                 showLoomGrid={showLoomGrid}
               />
+            </div>
           ) : isLace && lace ? (
+
             <div className="flex items-center justify-center overflow-auto p-6">
               <LaceCanvas
                 graph={lace}
