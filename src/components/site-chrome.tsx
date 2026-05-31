@@ -22,6 +22,8 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1 md:flex">
           {link("/", "home")}
           {link("/about", "about")}
+          {link("/mechanisms", "mechanisms")}
+          {link("/goals", "goals")}
           {link("/features", "features")}
         </nav>
         <Link to="/studio" className="btn-ember">enter studio</Link>

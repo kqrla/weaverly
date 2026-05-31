@@ -10,6 +10,8 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as StudioRouteImport } from './routes/studio'
+import { Route as MechanismsRouteImport } from './routes/mechanisms'
+import { Route as GoalsRouteImport } from './routes/goals'
 import { Route as FeaturesRouteImport } from './routes/features'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -17,6 +19,16 @@ import { Route as IndexRouteImport } from './routes/index'
 const StudioRoute = StudioRouteImport.update({
   id: '/studio',
   path: '/studio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MechanismsRoute = MechanismsRouteImport.update({
+  id: '/mechanisms',
+  path: '/mechanisms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GoalsRoute = GoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeaturesRoute = FeaturesRouteImport.update({
@@ -39,12 +51,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/features': typeof FeaturesRoute
+  '/goals': typeof GoalsRoute
+  '/mechanisms': typeof MechanismsRoute
   '/studio': typeof StudioRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/features': typeof FeaturesRoute
+  '/goals': typeof GoalsRoute
+  '/mechanisms': typeof MechanismsRoute
   '/studio': typeof StudioRoute
 }
 export interface FileRoutesById {
@@ -52,20 +68,31 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/features': typeof FeaturesRoute
+  '/goals': typeof GoalsRoute
+  '/mechanisms': typeof MechanismsRoute
   '/studio': typeof StudioRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/features' | '/studio'
+  fullPaths: '/' | '/about' | '/features' | '/goals' | '/mechanisms' | '/studio'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/features' | '/studio'
-  id: '__root__' | '/' | '/about' | '/features' | '/studio'
+  to: '/' | '/about' | '/features' | '/goals' | '/mechanisms' | '/studio'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/features'
+    | '/goals'
+    | '/mechanisms'
+    | '/studio'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   FeaturesRoute: typeof FeaturesRoute
+  GoalsRoute: typeof GoalsRoute
+  MechanismsRoute: typeof MechanismsRoute
   StudioRoute: typeof StudioRoute
 }
 
@@ -76,6 +103,20 @@ declare module '@tanstack/react-router' {
       path: '/studio'
       fullPath: '/studio'
       preLoaderRoute: typeof StudioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mechanisms': {
+      id: '/mechanisms'
+      path: '/mechanisms'
+      fullPath: '/mechanisms'
+      preLoaderRoute: typeof MechanismsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/goals': {
+      id: '/goals'
+      path: '/goals'
+      fullPath: '/goals'
+      preLoaderRoute: typeof GoalsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/features': {
@@ -106,6 +147,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   FeaturesRoute: FeaturesRoute,
+  GoalsRoute: GoalsRoute,
+  MechanismsRoute: MechanismsRoute,
   StudioRoute: StudioRoute,
 }
 export const routeTree = rootRouteImport
