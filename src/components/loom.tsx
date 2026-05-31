@@ -487,6 +487,15 @@ export function Loom() {
                 showLattice={showLattice}
               />
             </div>
+          ) : isWoven && draft ? (
+            <div className="flex items-center justify-center overflow-auto p-6">
+              <WeaveGrid
+                draft={draft}
+                revealed={revealed}
+                cellSize={cellSize}
+                showLoomGrid={showLoomGrid}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
@@ -496,6 +505,7 @@ export function Loom() {
               {asciiDisplay}
             </pre>
           )}
+
         </div>
 
         <div className="card-dashed p-5">
