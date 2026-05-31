@@ -33,22 +33,58 @@ export function Loom() {
 
   const isCrossStitch = style === "cross-stitch";
 
+  // debounce the seed word for the ai call only — local generation
+  // still updates instantly so the chart remains responsive while
+  // the bitmap is in flight.
+  const [debouncedText, setDebouncedText] = useState(text);
+  useEffect(() => {
+    const id = setTimeout(() => setDebouncedText(text.trim()), 350);
+    return () => clearTimeout(id);
+  }, [text]);
+
   // legacy ascii engine — used by every non-cross-stitch mode (for now).
   const asciiResult = useMemo(
     () => generate({ text, style, density, symmetry, cols, rows, paletteIndex }),
     [text, style, density, symmetry, cols, rows, paletteIndex],
   );
 
+  // ask the model to silhouette any word the local SHAPE catalog
+  // doesn't already know. SUPPORTED_WORDS is the gate — if the word
+  // is already recognised we don't burn a request.
+  const callInterpret = useServerFn(interpretShape);
+  const needsAi =
+    isCrossStitch &&
+    debouncedText.length > 0 &&
+    !SUPPORTED_WORDS.includes(debouncedText) &&
+    !SUPPORTED_WORDS.some((w) => debouncedText.split(/[^a-z]+/).includes(w));
+
+  const bitmapQuery = useQuery({
+    queryKey: ["shape-bitmap", debouncedText],
+    queryFn: () => callInterpret({ data: { word: debouncedText } }),
+    enabled: needsAi,
+    staleTime: 1000 * 60 * 60,
+    retry: 1,
+  });
+
   // dedicated cross-stitch engine — strict lattice, motif tiling, hem.
   const chart: CrossStitchChart | null = useMemo(
     () =>
       isCrossStitch
-        ? generateCrossStitch({ text, cols, rows, density, symmetry, borderStyle })
+        ? generateCrossStitch({
+            text,
+            cols,
+            rows,
+            density,
+            symmetry,
+            borderStyle,
+            bitmap: bitmapQuery.data ?? null,
+          })
         : null,
-    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle],
+    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
   const shapeKey = isCrossStitch ? chart!.shapeKey : asciiResult.shapeKey;
+  const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch ? cols * rows : asciiResult.grid.flat().length;
 
   useEffect(() => {
