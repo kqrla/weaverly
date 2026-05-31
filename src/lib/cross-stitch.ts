@@ -39,6 +39,11 @@ export interface CrossStitchOptions {
   density: number;          // 0..1 — biases motif fill and knot scatter inside the shape
   symmetry: "none" | "mirror-x" | "mirror-y" | "quad";
   borderStyle?: BorderStyle;
+  // optional ai-supplied silhouette mask. when present (and the word
+  // doesn't already match a built-in SHAPE), this drives the central
+  // motif instead of the procedural sampler. rows are square strings
+  // of '0' / '1' characters — same grammar as the engine's lattice.
+  bitmap?: { size: number; rows: string[] } | null;
 }
 
 export type BorderStyle = "none" | "running" | "diamond" | "wave" | "scallop";
@@ -49,6 +54,7 @@ export interface CrossStitchChart {
   rows: number;
   shapeKey: string | null;
   borderStyle: BorderStyle;
+  source: "shape" | "bitmap" | "procedural";
 }
 
 // --- prng (local copy so this file is self-contained) ----------------
