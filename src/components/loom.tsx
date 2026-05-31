@@ -4,8 +4,11 @@
 // use the legacy ascii grid until their own engines land.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
+import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
