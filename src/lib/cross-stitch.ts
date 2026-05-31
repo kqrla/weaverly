@@ -300,11 +300,18 @@ export function generateCrossStitch(opts: CrossStitchOptions): CrossStitchChart 
   const period = 4 + (seed % 3);
   stampTiledMotif(cells, motif, period, "stripe", 4);
 
-  // 3. central content — shape if matched, sampler bands otherwise
+  // 3. central content — built-in shape wins; otherwise an ai-supplied
+  //    bitmap silhouette; otherwise a procedural sampler.
+  let source: CrossStitchChart["source"];
   if (shapeKey && SHAPES[shapeKey]) {
     stampShape(cells, SHAPES[shapeKey], 4, "ember", opts.density, seed, opts.symmetry);
+    source = "shape";
+  } else if (opts.bitmap && opts.bitmap.rows.length > 0) {
+    stampBitmap(cells, opts.bitmap, 4, "ember", opts.density, seed, opts.symmetry);
+    source = "bitmap";
   } else {
     stampProceduralSampler(cells, seed, opts.density, "ember", 4);
+    source = "procedural";
   }
 
   return {
@@ -313,7 +320,62 @@ export function generateCrossStitch(opts: CrossStitchOptions): CrossStitchChart 
     rows: opts.rows,
     shapeKey,
     borderStyle,
+    source,
   };
+}
+
+// rasterise an ai-supplied bitmap mask onto the inner lattice. the
+// mask is sampled per cell (nearest-neighbour); a cell is treated as
+// "inside" iff its sample reads '1'. edge cells become french knots
+// so the silhouette gets its own outline grammar, identical to how
+// built-in SHAPE rasterisation behaves — the two pathways must feel
+// indistinguishable in the finished cloth.
+function stampBitmap(
+  cells: StitchCell[][],
+  bitmap: { size: number; rows: string[] },
+  inset: number,
+  color: ThreadColor,
+  density: number,
+  seed: number,
+  symmetry: CrossStitchOptions["symmetry"],
+) {
+  const rows = cells.length;
+  const cols = cells[0].length;
+  const innerCols = cols - inset * 2;
+  const innerRows = rows - inset * 2;
+  const halfX = Math.ceil(innerCols / 2);
+  const halfY = Math.ceil(innerRows / 2);
+  const sample = (px: number, py: number): boolean => {
+    if (px < 0 || py < 0 || px >= bitmap.size || py >= bitmap.size) return false;
+    const row = bitmap.rows[py] ?? "";
+    return row.charAt(px) === "1";
+  };
+  const cellAt = (ix: number, iy: number): boolean => {
+    const bx = Math.floor(((ix + 0.5) / innerCols) * bitmap.size);
+    const by = Math.floor(((iy + 0.5) / innerRows) * bitmap.size);
+    return sample(bx, by);
+  };
+  for (let y = 0; y < innerRows; y++) {
+    for (let x = 0; x < innerCols; x++) {
+      let sx = x, sy = y;
+      if ((symmetry === "mirror-x" || symmetry === "quad") && x >= halfX) sx = innerCols - 1 - x;
+      if ((symmetry === "mirror-y" || symmetry === "quad") && y >= halfY) sy = innerRows - 1 - y;
+      if (!cellAt(sx, sy)) continue;
+      const gx = inset + x;
+      const gy = inset + y;
+      if (cells[gy][gx].kind !== "empty") continue;
+      const rng = mulberry32(seed ^ (sx * 73856093) ^ (sy * 19349663))();
+      if (rng > 0.25 + density * 0.75) continue;
+      // edge if any 4-neighbour in the mask is outside
+      const isEdge =
+        !cellAt(sx + 1, sy) || !cellAt(sx - 1, sy) ||
+        !cellAt(sx, sy + 1) || !cellAt(sx, sy - 1);
+      cells[gy][gx] = {
+        kind: isEdge && rng < 0.35 ? "knot" : "full",
+        color,
+      };
+    }
+  }
 }
 
 function pickBorderStyle(seed: number): BorderStyle {
