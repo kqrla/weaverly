@@ -9,9 +9,11 @@ import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
+import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
+import { LaceCanvas } from "@/components/lace-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
@@ -34,10 +36,15 @@ export function Loom() {
   const [showLattice, setShowLattice] = useState(true);
   const [weaveType, setWeaveType] = useState<WeaveType | "auto">("auto");
   const [showLoomGrid, setShowLoomGrid] = useState(false);
+  const [laceFamily, setLaceFamily] = useState<LaceFamily | "auto">("auto");
+  const [laceSize, setLaceSize] = useState(560);
+  const [showLaceNodes, setShowLaceNodes] = useState(true);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
+  const isLace = style === "lace";
+
 
 
   // debounce the seed word for the ai call only — local generation
@@ -106,31 +113,53 @@ export function Loom() {
     [isWoven, text, cols, rows, density, symmetry, weaveType],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven ? null : asciiResult.shapeKey;
+  // dedicated lace engine — connected network of loops/knots/threads.
+  const lace: LaceGraph | null = useMemo(
+    () =>
+      isLace
+        ? generateLace({
+            text,
+            density,
+            symmetry,
+            family: laceFamily === "auto" ? undefined : laceFamily,
+          })
+        : null,
+    [isLace, text, density, symmetry, laceFamily],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
-  const total = isCrossStitch || isWoven ? cols * rows : asciiResult.grid.flat().length;
+  const total = isCrossStitch || isWoven
+    ? cols * rows
+    : isLace
+      ? (lace?.edges.length ?? 0)
+      : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      setRevealed((r) => (r >= total ? r : Math.min(total, r + speed)));
+      // lace blooms more slowly than a stitch ticks, so we throttle the
+      // step when in lace mode — otherwise the whole network appears in
+      // a single frame on small graphs.
+      const step = isLace ? Math.max(1, Math.round(speed / 6)) : speed;
+      setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total, speed]);
+  }, [playing, total, speed, isLace]);
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for legacy (ascii/lace/beadwork) modes
+  // ascii display string for legacy (ascii/beadwork) modes
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven) return "";
+    if (isCrossStitch || isWoven || isLace) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -142,14 +171,16 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
       ? chartToAscii(chart!)
       : isWoven
         ? draftToAscii(draft!)
-        : gridToString(asciiResult.grid);
+        : isLace
+          ? laceToAscii(lace!)
+          : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -161,6 +192,11 @@ export function Loom() {
     }
     if (isWoven && draft) {
       const svg = weaveToSvg(draft, cellSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isLace && lace) {
+      const svg = laceToSvg(lace, laceSize);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -188,9 +224,12 @@ export function Loom() {
         ? chartToAscii(chart!)
         : isWoven
           ? draftToAscii(draft!)
-          : gridToString(asciiResult.grid),
+          : isLace
+            ? laceToAscii(lace!)
+            : gridToString(asciiResult.grid),
       "text/plain",
     );
+
 
 
   return (
@@ -240,12 +279,13 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && !isWoven && (
+          {!isCrossStitch && !isWoven && !isLace && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              ascii/lace/beadwork still use the legacy glyph grid and will be replaced with
+              ascii/beadwork still use the legacy glyph grid and will be replaced with
               their own grammars next.
             </p>
           )}
+
         </Field>
 
 
@@ -367,6 +407,58 @@ export function Loom() {
             </label>
           </>
         )}
+
+        {isLace && (
+          <>
+            <Field label="lace family">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "doily", "crochet", "tatting", "bobbin", "floral", "geometric"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setLaceFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      laceFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {lace && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  grown as <span className="marker font-medium">{lace.family}</span> ·
+                  {" "}<span className="marker font-medium">{lace.symmetryOrder}</span>-fold ·
+                  {" "}{lace.rings} rings · {lace.nodes.length} nodes ·
+                  {" "}{lace.edges.length} threads
+                </p>
+              )}
+            </Field>
+            <Field label={`canvas size · ${laceSize}px`}>
+              <input
+                type="range"
+                min={360}
+                max={760}
+                step={20}
+                value={laceSize}
+                onChange={(e) => setLaceSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showLaceNodes}
+                onChange={(e) => setShowLaceNodes(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show loops &amp; knots
+            </label>
+          </>
+        )}
+
+
 
 
         <div className="grid grid-cols-2 gap-3">
@@ -496,6 +588,17 @@ export function Loom() {
                 showLoomGrid={showLoomGrid}
               />
             </div>
+          ) : isLace && lace ? (
+
+            <div className="flex items-center justify-center overflow-auto p-6">
+              <LaceCanvas
+                graph={lace}
+                revealed={revealed}
+                size={laceSize}
+                showNodes={showLaceNodes}
+              />
+            </div>
+
           ) : (
             <pre
               ref={preRef}
@@ -658,6 +761,60 @@ function weaveToSvg(draft: WeaveDraft, cellSize: number): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f0e9d8"/>${warpBg}${threads}</svg>`;
 }
+
+// vector export of the lace network — mirrors LaceCanvas exactly so the
+// downloaded file is byte-equivalent to what's drawn on screen.
+function laceToSvg(g: LaceGraph, size: number): string {
+  const margin = 30;
+  const inner = size - margin * 2;
+  const ink = "#262532";
+  const ember = "#2a3a6a";
+  const stripe = "#a8b0c2";
+  const to = (n: { x: number; y: number; radius: number }) => ({
+    x: margin + ((n.x + 1) / 2) * inner,
+    y: margin + ((n.y + 1) / 2) * inner,
+    r: n.radius * inner,
+  });
+  const nodesById = new Map(g.nodes.map((n) => [n.id, n]));
+  let threads = "";
+  for (const e of g.edges) {
+    const a = nodesById.get(e.a);
+    const c = nodesById.get(e.b);
+    if (!a || !c) continue;
+    const A = to(a);
+    const C = to(c);
+    if (e.c1 && e.c2) {
+      const C1 = { x: margin + ((e.c1.x + 1) / 2) * inner, y: margin + ((e.c1.y + 1) / 2) * inner };
+      const C2 = { x: margin + ((e.c2.x + 1) / 2) * inner, y: margin + ((e.c2.y + 1) / 2) * inner };
+      threads += `<path d="M${A.x},${A.y} C${C1.x},${C1.y} ${C2.x},${C2.y} ${C.x},${C.y}" fill="none" stroke="${ink}" stroke-opacity="0.8" stroke-width="1.1" stroke-linecap="round"/>`;
+    } else {
+      threads += `<line x1="${A.x}" y1="${A.y}" x2="${C.x}" y2="${C.y}" stroke="${ink}" stroke-opacity="0.8" stroke-width="1.1" stroke-linecap="round"/>`;
+    }
+  }
+  let nodes = "";
+  for (const n of g.nodes) {
+    const N = to(n);
+    if (n.kind === "loop") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="none" stroke="${ink}" stroke-width="1.2"/>`;
+    } else if (n.kind === "petal") {
+      const ang = Math.atan2(n.y, n.x);
+      const ux = Math.cos(ang), uy = Math.sin(ang);
+      const len = N.r * 2.2, wid = N.r * 0.9;
+      const tipX = N.x + ux * len, tipY = N.y + uy * len;
+      const baseX = N.x - ux * len * 0.2, baseY = N.y - uy * len * 0.2;
+      const px = -uy * wid, py = ux * wid;
+      nodes += `<path d="M${baseX},${baseY} Q${N.x + px},${N.y + py} ${tipX},${tipY} Q${N.x - px},${N.y - py} ${baseX},${baseY} Z" fill="${ember}" fill-opacity="0.7" stroke="${ink}" stroke-width="0.8"/>`;
+    } else if (n.kind === "leaf") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="${stripe}" stroke="${ink}" stroke-width="0.8"/>`;
+    } else if (n.kind === "center") {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${N.r}" fill="none" stroke="${ink}" stroke-width="1.2"/><circle cx="${N.x}" cy="${N.y}" r="${N.r * 0.4}" fill="${ember}"/>`;
+    } else {
+      nodes += `<circle cx="${N.x}" cy="${N.y}" r="${Math.max(1.2, N.r * 0.7)}" fill="${ink}"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="100%" height="100%" fill="#f0e9d8"/>${threads}${nodes}</svg>`;
+}
+
 
 
 function slug(t: string) {
