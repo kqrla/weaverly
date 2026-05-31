@@ -46,7 +46,7 @@ type ShapeFn = (nx: number, ny: number) => number;
 
 const PI = Math.PI;
 
-const SHAPES: Record<string, ShapeFn> = {
+export const SHAPES: Record<string, ShapeFn> = {
   heart: (x, y) => {
     // classic implicit heart: (x^2 + y^2 - 1)^3 - x^2 y^3 <= 0
     const Y = -y + 0.15; // shift down a touch
