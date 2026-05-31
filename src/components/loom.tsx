@@ -128,9 +128,9 @@ export function Loom() {
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for non-cross-stitch modes
+  // ascii display string for legacy (ascii/lace/beadwork) modes
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch) return "";
+    if (isCrossStitch || isWoven) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -142,10 +142,14 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
-    const content = isCrossStitch ? chartToAscii(chart!) : gridToString(asciiResult.grid);
+    const content = isCrossStitch
+      ? chartToAscii(chart!)
+      : isWoven
+        ? draftToAscii(draft!)
+        : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -155,6 +159,12 @@ export function Loom() {
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
+    if (isWoven && draft) {
+      const svg = weaveToSvg(draft, cellSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+
     const cell = 18;
     const w = cols * cell;
     const h = rows * cell;
