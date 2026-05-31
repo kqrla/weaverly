@@ -320,6 +320,55 @@ export function Loom() {
           </>
         )}
 
+        {isWoven && (
+          <>
+            <Field label="weave structure">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "plain", "twill", "basket", "satin", "herringbone", "diamond", "jacquard"] as const).map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setWeaveType(w)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      weaveType === w
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {w}
+                  </button>
+                ))}
+              </div>
+              {draft && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  loom drafted on <span className="marker font-medium">{draft.shafts}</span> shafts ·
+                  weave <span className="marker font-medium">{draft.weave}</span> · seed
+                  {" "}<span className="font-mono">{draft.seedWord}</span>
+                </p>
+              )}
+            </Field>
+            <Field label={`thread size · ${cellSize}px`}>
+              <input
+                type="range"
+                min={6}
+                max={28}
+                value={cellSize}
+                onChange={(e) => setCellSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showLoomGrid}
+                onChange={(e) => setShowLoomGrid(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show loom draft grid
+            </label>
+          </>
+        )}
+
+
         <div className="grid grid-cols-2 gap-3">
           <Field label={`cols · ${cols}`}>
             <input
