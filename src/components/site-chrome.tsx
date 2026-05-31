@@ -43,16 +43,16 @@ export function SiteFooter() {
 
 export function Marquee({ words }: { words: string[] }) {
   const row = (
-    <div className="flex shrink-0 items-center gap-10 pr-10">
+    <div className="flex shrink-0 items-center gap-6 pr-6">
       {words.map((w, i) => (
-        <span key={i} className="font-display text-[11vw] leading-none text-ink italic">
+        <span key={i} className="font-display text-2xl leading-none text-ink italic">
           {w}
         </span>
       ))}
     </div>
   );
   return (
-    <div className="overflow-hidden border-y border-ink bg-stripes py-6">
+    <div className="overflow-hidden border-y border-ink bg-accent py-2">
       <div className="flex w-max animate-marquee">
         {row}
         {row}
