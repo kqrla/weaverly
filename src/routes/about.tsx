@@ -5,7 +5,9 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "about — weaverly" },
-      { name: "description", content: "weaverly is a quiet atelier for procedural textile. a tool for turning words into thread, stitch, and grid." },
+      { name: "description", content: "weaverly is a small studio of computational fiber arts. six engines, six grammars, one quiet loom." },
+      { property: "og:title", content: "about — weaverly" },
+      { property: "og:description", content: "a tiny studio of digital craft simulators." },
     ],
   }),
   component: About,
@@ -18,9 +20,9 @@ function About() {
       <section className="bg-stripes border-b border-ink">
         <div className="mx-auto max-w-5xl px-6 py-20">
           <div className="card-dashed px-10 py-16 text-center">
-            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink">about the atelier</p>
+            <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink">about the studio</p>
             <h1 className="mt-6 font-display text-5xl text-ink sm:text-6xl">
-              a small loom, <span className="marker italic">kept indoors.</span>
+              a small studio of <span className="marker italic">computational fiber arts.</span>
             </h1>
           </div>
         </div>
@@ -28,27 +30,38 @@ function About() {
 
       <section className="mx-auto max-w-3xl px-6 py-20 space-y-8 text-lg leading-relaxed text-ink/85">
         <p className="font-display text-3xl italic text-ink">
-          weaverly began as a question: what if you could type the name of a thing and watch a tiny machine weave that very thing back to you?
+          weaverly began with a refusal. one procedural engine cannot honestly speak six craft languages
+          at once. so we built six separate engines instead.
         </p>
         <p>
-          type "rose" and a rose blooms across the grid. type "heart" and a heart appears. type "moon" and a crescent rises out of the cream paper.
-          weaverly keeps a small herbarium of shapes — flowers, hearts, hands, mountains, butterflies — and stitches them into cloth using
-          ascii, cross-stitch, woven, lace, or beadwork glyphs.
+          the studio holds an ascii engine, a cross-stitch engine, a weaving engine, a lace engine, a
+          beadwork engine, and a quilting engine. they share an input pipeline and nothing else. each
+          one obeys its own structural grammar, draws from its own tradition, and produces its own kind
+          of artifact.
         </p>
         <p>
-          when the word isn't in the herbarium, weaverly listens to the letters and spins a procedural sigil instead — a quiet sibling pattern that
-          belongs only to that string.
+          you type a word. that word is never woven literally. it becomes a seed, the seed becomes a
+          pattern grammar, and the engine you chose interprets that grammar in its own native language.
+          the cross-stitch engine returns a stitchable chart. the weaving engine returns a thread draft.
+          the lace engine returns a connected radial network. the same seed across all six engines
+          produces six unrelated artifacts, and that is the entire point.
         </p>
         <p>
-          there is no feed, no follower count, no ai trying to guess what you meant. just letters, threads, and a loom that listens.
+          there is no feed here. no follower count. no recommendation system. no model trying to guess
+          what you meant. just letters, threads, and a small loom that listens.
         </p>
         <div className="card-dashed mt-10 p-8">
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink/65">made with</p>
           <p className="mt-3 font-display text-2xl italic text-ink">
-            cream paper, sky-blue stripe, deep navy ink, and a deterministic prng small enough to fit in a pocket.
+            cream paper, sky-blue stripe, deep navy ink, and a deterministic prng small enough to fit in
+            a pocket.
           </p>
         </div>
-        <Link to="/studio" className="btn-ember mt-4">open the studio →</Link>
+        <div className="flex flex-wrap gap-3">
+          <Link to="/mechanisms" className="rounded-md border border-ink px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] hover:bg-stripe/40">how the engines think</Link>
+          <Link to="/goals" className="rounded-md border border-ink px-5 py-3 font-mono text-[11px] uppercase tracking-[0.2em] hover:bg-stripe/40">why it exists</Link>
+          <Link to="/studio" className="btn-ember">open the studio</Link>
+        </div>
       </section>
       <SiteFooter />
     </div>
