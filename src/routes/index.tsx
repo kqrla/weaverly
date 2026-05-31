@@ -54,7 +54,7 @@ function Index() {
           <div className="card-dashed px-8 py-14 sm:px-16 sm:py-20 text-center">
             <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink">introducing</p>
             <h1 className="mt-6 font-display text-5xl leading-[1.05] text-ink sm:text-6xl">
-              a small browser loom for any word <br className="hidden sm:block" /> you'd like to turn into cloth:
+              a browser loom and collection <br className="hidden sm:block" /> of craft simulators.
             </h1>
             <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-ink/75">
               weaverly listens to your word, recognises a shape — rose, heart, moon, mountain, butterfly — and weaves
