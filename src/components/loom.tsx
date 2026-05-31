@@ -167,8 +167,17 @@ export function Loom() {
           <p className="mt-2 text-[11px] leading-snug text-ink/65">
             {shapeKey ? (
               <>
-                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched in
-                your chosen mode.
+                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched
+                from the built-in shape library.
+              </>
+            ) : isCrossStitch && bitmapQuery.isFetching ? (
+              <>asking the loom to silhouette <span className="font-medium">{debouncedText}</span>…</>
+            ) : isCrossStitch && bitmapQuery.isError ? (
+              <>couldn't interpret that word right now. weaving a sampler from the letters instead.</>
+            ) : isCrossStitch && chartSource === "bitmap" ? (
+              <>
+                interpreted as <span className="marker font-medium">{debouncedText}</span> — silhouette
+                drafted on the fly and snapped to the lattice.
               </>
             ) : (
               <>no shape match. a procedural sampler will be charted from the letters instead.</>
