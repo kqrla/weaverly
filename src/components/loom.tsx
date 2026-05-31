@@ -8,10 +8,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from "@/lib/weaverly";
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
+import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { StitchGrid } from "@/components/stitch-grid";
+import { WeaveGrid } from "@/components/weave-grid";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
+
 
 export function Loom() {
   const [text, setText] = useState("rose");
