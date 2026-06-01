@@ -11,6 +11,7 @@ import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { interpretShape } from "@/lib/shape-ai.functions";
+import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
