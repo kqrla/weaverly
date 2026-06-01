@@ -57,9 +57,10 @@ export function Loom() {
     return () => clearTimeout(id);
   }, [text]);
 
-  // legacy ascii engine — used by every non-cross-stitch mode (for now).
+  // legacy ascii engine — also routed through the semantic seed below,
+  // so typing "ocean" weaves wave-density glyphs instead of o-c-e-a-n.
   const asciiResult = useMemo(
-    () => generate({ text, style, density, symmetry, cols, rows, paletteIndex }),
+    () => generate({ text: text, style, density, symmetry, cols, rows, paletteIndex }),
     [text, style, density, symmetry, cols, rows, paletteIndex],
   );
 
