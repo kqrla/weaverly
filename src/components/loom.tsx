@@ -278,29 +278,72 @@ export function Loom() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value.toLowerCase())}
-            placeholder="rose, heart, star, moon…"
+            placeholder="rose, ocean, storm, alice…"
             className="w-full rounded-md border border-ink bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <p className="mt-2 text-[11px] leading-snug text-ink/65">
-            {shapeKey ? (
+          <div className="mt-2 space-y-2 text-[11px] leading-snug text-ink/70">
+            {semanticQuery.isFetching && !semantic ? (
+              <p>reading <span className="font-mono">{debouncedText}</span>…</p>
+            ) : semantic ? (
               <>
-                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched
-                from the built-in shape library.
-              </>
-            ) : isCrossStitch && bitmapQuery.isFetching ? (
-              <>asking the loom to silhouette <span className="font-medium">{debouncedText}</span>…</>
-            ) : isCrossStitch && bitmapQuery.isError ? (
-              <>couldn't interpret that word right now. weaving a sampler from the letters instead.</>
-            ) : isCrossStitch && chartSource === "bitmap" ? (
-              <>
-                interpreted as <span className="marker font-medium">{debouncedText}</span> — silhouette
-                drafted on the fly and snapped to the lattice.
+                <p>
+                  read as{" "}
+                  <span className="marker font-medium">
+                    {semantic.kind === "proper-name"
+                      ? "a name"
+                      : semantic.kind === "ambiguous"
+                        ? "ambiguous"
+                        : (semantic.concept ?? "concept")}
+                  </span>
+                  {semantic.kind !== "proper-name" && semantic.concept ? (
+                    <> — woven from its meaning, not its letters.</>
+                  ) : semantic.kind === "proper-name" ? (
+                    <> — kept as a personal seed; the letters drive the pattern.</>
+                  ) : null}
+                </p>
+                {semantic.motifs.length > 0 && (
+                  <p className="text-ink/55">
+                    motifs:{" "}
+                    {semantic.motifs.map((m, i) => (
+                      <span key={m}>
+                        <span className="font-mono">{m}</span>
+                        {i < semantic.motifs.length - 1 ? ", " : ""}
+                      </span>
+                    ))}
+                  </p>
+                )}
+                {semantic.alternates.length > 0 && (
+                  <div>
+                    <span className="text-ink/55">or read as:</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {semantic.alternates.map((alt) => (
+                        <button
+                          key={alt.label}
+                          onClick={() => setText((alt.concept || alt.label).toLowerCase())}
+                          className="rounded-full border border-ink/30 px-2 py-0.5 font-mono text-[10px] hover:border-ink hover:bg-stripe/40"
+                        >
+                          {alt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {isCrossStitch && bitmapQuery.isFetching && (
+                  <p className="text-ink/55">silhouetting <span className="font-mono">{bitmapWord}</span>…</p>
+                )}
+                {isCrossStitch && chartSource === "bitmap" && !bitmapQuery.isFetching && (
+                  <p className="text-ink/55">silhouette of <span className="font-mono">{bitmapWord}</span> snapped to the lattice.</p>
+                )}
+                {isCrossStitch && shapeKey && (
+                  <p className="text-ink/55">stitched from the built-in <span className="font-mono">{shapeKey}</span> motif.</p>
+                )}
               </>
             ) : (
-              <>no shape match. a procedural sampler will be charted from the letters instead.</>
+              <p>type any word — common nouns become motifs, names become personal seeds.</p>
             )}
-          </p>
+          </div>
         </Field>
+
 
         <Field label="engine">
           <div className="grid grid-cols-2 gap-2">
