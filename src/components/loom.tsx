@@ -11,6 +11,7 @@ import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { interpretShape } from "@/lib/shape-ai.functions";
+import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
@@ -56,25 +57,53 @@ export function Loom() {
     return () => clearTimeout(id);
   }, [text]);
 
-  // legacy ascii engine — used by every non-cross-stitch mode (for now).
+  // legacy ascii engine — also routed through the semantic seed below,
+  // so typing "ocean" weaves wave-density glyphs instead of o-c-e-a-n.
   const asciiResult = useMemo(
-    () => generate({ text, style, density, symmetry, cols, rows, paletteIndex }),
+    () => generate({ text: text, style, density, symmetry, cols, rows, paletteIndex }),
     [text, style, density, symmetry, cols, rows, paletteIndex],
   );
 
-  // ask the model to silhouette any word the local SHAPE catalog
-  // doesn't already know. SUPPORTED_WORDS is the gate — if the word
-  // is already recognised we don't burn a request.
+  // semantic interpreter — classifies the input before any engine
+  // touches it. concepts get *meaning-driven* seeds; proper names
+  // keep their literal letters so identity stays personal.
+  const callInterpretSeed = useServerFn(interpretSeed);
+  const semanticQuery = useQuery<SemanticReading>({
+    queryKey: ["semantic", debouncedText],
+    queryFn: () => callInterpretSeed({ data: { word: debouncedText } }),
+    enabled: debouncedText.length > 0,
+    staleTime: 1000 * 60 * 60,
+    retry: 1,
+  });
+  const semantic = semanticQuery.data ?? null;
+
+  // the seed every engine actually generates from. for a concept
+  // ("rose garden" → rose) we substitute the concept noun so the
+  // textile is driven by meaning rather than spelling. for a proper
+  // name we keep the literal input intact.
+  const engineSeed = useMemo(() => {
+    if (semantic?.kind === "concept" && semantic.concept) return semantic.concept;
+    return text;
+  }, [semantic, text]);
+
+  // which word, if any, the cross-stitch silhouette engine should
+  // draw. proper names skip the bitmap call entirely and fall back
+  // to the procedural sampler so the chart still feels personal.
+  const bitmapWord = useMemo(() => {
+    if (!semantic) return debouncedText;
+    if (semantic.kind === "proper-name") return "";
+    return semantic.hints.crossStitchSubject || semantic.concept || debouncedText;
+  }, [semantic, debouncedText]);
+
+  // ask the model to silhouette the *concept* (rose, lightning bolt,
+  // book) instead of the literal input. we still cache by word so
+  // repeated entries don't re-burn requests.
   const callInterpret = useServerFn(interpretShape);
-  const needsAi =
-    isCrossStitch &&
-    debouncedText.length > 0 &&
-    !SUPPORTED_WORDS.includes(debouncedText) &&
-    !SUPPORTED_WORDS.some((w) => debouncedText.split(/[^a-z]+/).includes(w));
+  const needsAi = isCrossStitch && bitmapWord.length > 0;
 
   const bitmapQuery = useQuery({
-    queryKey: ["shape-bitmap", debouncedText],
-    queryFn: () => callInterpret({ data: { word: debouncedText } }),
+    queryKey: ["shape-bitmap", bitmapWord],
+    queryFn: () => callInterpret({ data: { word: bitmapWord } }),
     enabled: needsAi,
     staleTime: 1000 * 60 * 60,
     retry: 1,
@@ -85,7 +114,7 @@ export function Loom() {
     () =>
       isCrossStitch
         ? generateCrossStitch({
-            text,
+            text: engineSeed,
             cols,
             rows,
             density,
@@ -94,37 +123,47 @@ export function Loom() {
             bitmap: bitmapQuery.data ?? null,
           })
         : null,
-    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
+    [isCrossStitch, engineSeed, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
   // dedicated weaving engine — loom draft + warp/weft simulation.
+  // when the user leaves the structure on "auto" we use the semantic
+  // hint (e.g. storm → twill, water → satin, mountains → diamond).
   const draft: WeaveDraft | null = useMemo(
     () =>
       isWoven
         ? generateWeave({
-            text,
+            text: engineSeed,
             cols,
             rows,
             density,
             symmetry,
-            weave: weaveType === "auto" ? undefined : weaveType,
+            weave:
+              weaveType === "auto"
+                ? (semantic?.hints.weave ?? undefined)
+                : weaveType,
           })
         : null,
-    [isWoven, text, cols, rows, density, symmetry, weaveType],
+    [isWoven, engineSeed, cols, rows, density, symmetry, weaveType, semantic],
   );
 
   // dedicated lace engine — connected network of loops/knots/threads.
+  // same auto-routing: a "rose" grows as floral lace, a "snowflake"
+  // as a doily, a "cathedral" as bobbin.
   const lace: LaceGraph | null = useMemo(
     () =>
       isLace
         ? generateLace({
-            text,
+            text: engineSeed,
             density,
             symmetry,
-            family: laceFamily === "auto" ? undefined : laceFamily,
+            family:
+              laceFamily === "auto"
+                ? (semantic?.hints.lace ?? undefined)
+                : laceFamily,
           })
         : null,
-    [isLace, text, density, symmetry, laceFamily],
+    [isLace, engineSeed, density, symmetry, laceFamily, semantic],
   );
 
   const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
@@ -239,29 +278,72 @@ export function Loom() {
           <input
             value={text}
             onChange={(e) => setText(e.target.value.toLowerCase())}
-            placeholder="rose, heart, star, moon…"
+            placeholder="rose, ocean, storm, alice…"
             className="w-full rounded-md border border-ink bg-background px-3 py-2 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
-          <p className="mt-2 text-[11px] leading-snug text-ink/65">
-            {shapeKey ? (
+          <div className="mt-2 space-y-2 text-[11px] leading-snug text-ink/70">
+            {semanticQuery.isFetching && !semantic ? (
+              <p>reading <span className="font-mono">{debouncedText}</span>…</p>
+            ) : semantic ? (
               <>
-                interpreted as <span className="marker font-medium">{shapeKey}</span> — stitched
-                from the built-in shape library.
-              </>
-            ) : isCrossStitch && bitmapQuery.isFetching ? (
-              <>asking the loom to silhouette <span className="font-medium">{debouncedText}</span>…</>
-            ) : isCrossStitch && bitmapQuery.isError ? (
-              <>couldn't interpret that word right now. weaving a sampler from the letters instead.</>
-            ) : isCrossStitch && chartSource === "bitmap" ? (
-              <>
-                interpreted as <span className="marker font-medium">{debouncedText}</span> — silhouette
-                drafted on the fly and snapped to the lattice.
+                <p>
+                  read as{" "}
+                  <span className="marker font-medium">
+                    {semantic.kind === "proper-name"
+                      ? "a name"
+                      : semantic.kind === "ambiguous"
+                        ? "ambiguous"
+                        : (semantic.concept ?? "concept")}
+                  </span>
+                  {semantic.kind !== "proper-name" && semantic.concept ? (
+                    <> — woven from its meaning, not its letters.</>
+                  ) : semantic.kind === "proper-name" ? (
+                    <> — kept as a personal seed; the letters drive the pattern.</>
+                  ) : null}
+                </p>
+                {semantic.motifs.length > 0 && (
+                  <p className="text-ink/55">
+                    motifs:{" "}
+                    {semantic.motifs.map((m, i) => (
+                      <span key={m}>
+                        <span className="font-mono">{m}</span>
+                        {i < semantic.motifs.length - 1 ? ", " : ""}
+                      </span>
+                    ))}
+                  </p>
+                )}
+                {semantic.alternates.length > 0 && (
+                  <div>
+                    <span className="text-ink/55">or read as:</span>
+                    <div className="mt-1 flex flex-wrap gap-1.5">
+                      {semantic.alternates.map((alt) => (
+                        <button
+                          key={alt.label}
+                          onClick={() => setText((alt.concept || alt.label).toLowerCase())}
+                          className="rounded-full border border-ink/30 px-2 py-0.5 font-mono text-[10px] hover:border-ink hover:bg-stripe/40"
+                        >
+                          {alt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {isCrossStitch && bitmapQuery.isFetching && (
+                  <p className="text-ink/55">silhouetting <span className="font-mono">{bitmapWord}</span>…</p>
+                )}
+                {isCrossStitch && chartSource === "bitmap" && !bitmapQuery.isFetching && (
+                  <p className="text-ink/55">silhouette of <span className="font-mono">{bitmapWord}</span> snapped to the lattice.</p>
+                )}
+                {isCrossStitch && shapeKey && (
+                  <p className="text-ink/55">stitched from the built-in <span className="font-mono">{shapeKey}</span> motif.</p>
+                )}
               </>
             ) : (
-              <>no shape match. a procedural sampler will be charted from the letters instead.</>
+              <p>type any word — common nouns become motifs, names become personal seeds.</p>
             )}
-          </p>
+          </div>
         </Field>
+
 
         <Field label="engine">
           <div className="grid grid-cols-2 gap-2">
