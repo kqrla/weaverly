@@ -63,19 +63,46 @@ export function Loom() {
     [text, style, density, symmetry, cols, rows, paletteIndex],
   );
 
-  // ask the model to silhouette any word the local SHAPE catalog
-  // doesn't already know. SUPPORTED_WORDS is the gate — if the word
-  // is already recognised we don't burn a request.
+  // semantic interpreter — classifies the input before any engine
+  // touches it. concepts get *meaning-driven* seeds; proper names
+  // keep their literal letters so identity stays personal.
+  const callInterpretSeed = useServerFn(interpretSeed);
+  const semanticQuery = useQuery<SemanticReading>({
+    queryKey: ["semantic", debouncedText],
+    queryFn: () => callInterpretSeed({ data: { word: debouncedText } }),
+    enabled: debouncedText.length > 0,
+    staleTime: 1000 * 60 * 60,
+    retry: 1,
+  });
+  const semantic = semanticQuery.data ?? null;
+
+  // the seed every engine actually generates from. for a concept
+  // ("rose garden" → rose) we substitute the concept noun so the
+  // textile is driven by meaning rather than spelling. for a proper
+  // name we keep the literal input intact.
+  const engineSeed = useMemo(() => {
+    if (semantic?.kind === "concept" && semantic.concept) return semantic.concept;
+    return text;
+  }, [semantic, text]);
+
+  // which word, if any, the cross-stitch silhouette engine should
+  // draw. proper names skip the bitmap call entirely and fall back
+  // to the procedural sampler so the chart still feels personal.
+  const bitmapWord = useMemo(() => {
+    if (!semantic) return debouncedText;
+    if (semantic.kind === "proper-name") return "";
+    return semantic.hints.crossStitchSubject || semantic.concept || debouncedText;
+  }, [semantic, debouncedText]);
+
+  // ask the model to silhouette the *concept* (rose, lightning bolt,
+  // book) instead of the literal input. we still cache by word so
+  // repeated entries don't re-burn requests.
   const callInterpret = useServerFn(interpretShape);
-  const needsAi =
-    isCrossStitch &&
-    debouncedText.length > 0 &&
-    !SUPPORTED_WORDS.includes(debouncedText) &&
-    !SUPPORTED_WORDS.some((w) => debouncedText.split(/[^a-z]+/).includes(w));
+  const needsAi = isCrossStitch && bitmapWord.length > 0;
 
   const bitmapQuery = useQuery({
-    queryKey: ["shape-bitmap", debouncedText],
-    queryFn: () => callInterpret({ data: { word: debouncedText } }),
+    queryKey: ["shape-bitmap", bitmapWord],
+    queryFn: () => callInterpret({ data: { word: bitmapWord } }),
     enabled: needsAi,
     staleTime: 1000 * 60 * 60,
     retry: 1,
@@ -86,7 +113,7 @@ export function Loom() {
     () =>
       isCrossStitch
         ? generateCrossStitch({
-            text,
+            text: engineSeed,
             cols,
             rows,
             density,
@@ -95,37 +122,47 @@ export function Loom() {
             bitmap: bitmapQuery.data ?? null,
           })
         : null,
-    [isCrossStitch, text, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
+    [isCrossStitch, engineSeed, cols, rows, density, symmetry, borderStyle, bitmapQuery.data],
   );
 
   // dedicated weaving engine — loom draft + warp/weft simulation.
+  // when the user leaves the structure on "auto" we use the semantic
+  // hint (e.g. storm → twill, water → satin, mountains → diamond).
   const draft: WeaveDraft | null = useMemo(
     () =>
       isWoven
         ? generateWeave({
-            text,
+            text: engineSeed,
             cols,
             rows,
             density,
             symmetry,
-            weave: weaveType === "auto" ? undefined : weaveType,
+            weave:
+              weaveType === "auto"
+                ? (semantic?.hints.weave ?? undefined)
+                : weaveType,
           })
         : null,
-    [isWoven, text, cols, rows, density, symmetry, weaveType],
+    [isWoven, engineSeed, cols, rows, density, symmetry, weaveType, semantic],
   );
 
   // dedicated lace engine — connected network of loops/knots/threads.
+  // same auto-routing: a "rose" grows as floral lace, a "snowflake"
+  // as a doily, a "cathedral" as bobbin.
   const lace: LaceGraph | null = useMemo(
     () =>
       isLace
         ? generateLace({
-            text,
+            text: engineSeed,
             density,
             symmetry,
-            family: laceFamily === "auto" ? undefined : laceFamily,
+            family:
+              laceFamily === "auto"
+                ? (semantic?.hints.lace ?? undefined)
+                : laceFamily,
           })
         : null,
-    [isLace, text, density, symmetry, laceFamily],
+    [isLace, engineSeed, density, symmetry, laceFamily, semantic],
   );
 
   const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
