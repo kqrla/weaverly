@@ -766,6 +766,15 @@ export function Loom() {
               />
             </div>
 
+          ) : isBeadwork && beadwork ? (
+            <div className="flex items-center justify-center overflow-auto p-6">
+              <BeadCanvas
+                artifact={beadwork}
+                revealed={revealed}
+                size={beadSize}
+                showCords={showCords}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
