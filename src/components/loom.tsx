@@ -10,11 +10,13 @@ import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
+import { generateBeadwork, beadworkToAscii, type BeadworkArtifact, type BeadFamily } from "@/lib/beadwork";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
+import { BeadCanvas } from "@/components/bead-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
@@ -40,11 +42,15 @@ export function Loom() {
   const [laceFamily, setLaceFamily] = useState<LaceFamily | "auto">("auto");
   const [laceSize, setLaceSize] = useState(560);
   const [showLaceNodes, setShowLaceNodes] = useState(true);
+  const [beadFamily, setBeadFamily] = useState<BeadFamily | "auto">("auto");
+  const [beadSize, setBeadSizeState] = useState(640);
+  const [showCords, setShowCords] = useState(true);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
   const isLace = style === "lace";
+  const isBeadwork = style === "beadwork";
 
 
 
