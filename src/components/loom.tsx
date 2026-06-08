@@ -573,6 +573,58 @@ export function Loom() {
           </>
         )}
 
+        {isBeadwork && (
+          <>
+            <Field label="bead grammar">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "bracelet", "loom", "fringe", "medallion", "rosette", "netted", "freeform"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setBeadFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      beadFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {beadwork && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  strung as <span className="marker font-medium">{beadwork.family}</span> ·
+                  {" "}{beadwork.strands.length} strand{beadwork.strands.length === 1 ? "" : "s"} ·
+                  {" "}{beadwork.beads.length} beads
+                </p>
+              )}
+            </Field>
+            <Field label={`canvas size · ${beadSize}px`}>
+              <input
+                type="range"
+                min={420}
+                max={820}
+                step={20}
+                value={beadSize}
+                onChange={(e) => setBeadSizeState(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showCords}
+                onChange={(e) => setShowCords(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show threading cords
+            </label>
+          </>
+        )}
+
+
+
+
 
 
 
