@@ -394,10 +394,10 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && !isWoven && !isLace && (
+          {!isCrossStitch && !isWoven && !isLace && !isBeadwork && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              ascii/beadwork still use the legacy glyph grid and will be replaced with
-              their own grammars next.
+              ascii still uses the legacy glyph grid. cross-stitch, weaving, lace,
+              and beadwork each run on their own dedicated craft engine.
             </p>
           )}
 
