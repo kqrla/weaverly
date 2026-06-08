@@ -992,6 +992,45 @@ function laceToSvg(g: LaceGraph, size: number): string {
 }
 
 
+// vector export of a beadwork artifact — cords as polylines, beads as
+// gradient-filled circles / drops / bugles. mirrors BeadCanvas so the
+// downloaded svg matches what's drawn on screen.
+function beadworkToSvg(art: BeadworkArtifact): string {
+  const { width: w, height: h, beads, strands } = art;
+  let cords = "";
+  for (const s of strands) {
+    if (s.path.length < 2) continue;
+    const d = s.path.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+    cords += `<path d="${d}${s.closed ? " Z" : ""}" fill="none" stroke="#262532" stroke-opacity="${s.kind === "fringe" ? 0.4 : 0.5}" stroke-width="0.9" stroke-linecap="round"/>`;
+  }
+  let beadSvg = "";
+  let defs = "";
+  for (const b of beads) {
+    const gid = `bg${b.id}`;
+    const hl = b.finish === "matte" ? 0.15 : b.finish === "iridescent" ? 0.7 : 0.45;
+    defs += `<radialGradient id="${gid}" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffffff" stop-opacity="${hl}"/><stop offset="40%" stop-color="${b.color}"/><stop offset="100%" stop-color="#000000" stop-opacity="0.25"/></radialGradient>`;
+    if (b.shape === "drop") {
+      beadSvg += `<path opacity="${b.opacity}" d="M${b.x},${b.y - b.size * 1.4} C${b.x + b.size},${b.y - b.size * 0.6} ${b.x + b.size},${b.y + b.size * 0.4} ${b.x},${b.y + b.size * 1.1} C${b.x - b.size},${b.y + b.size * 0.4} ${b.x - b.size},${b.y - b.size * 0.6} ${b.x},${b.y - b.size * 1.4} Z" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.4" stroke-width="0.5"/>`;
+    } else if (b.shape === "bugle") {
+      beadSvg += `<rect opacity="${b.opacity}" x="${b.x - b.size * 1.6}" y="${b.y - b.size * 0.55}" width="${b.size * 3.2}" height="${b.size * 1.1}" rx="${b.size * 0.4}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.4" stroke-width="0.5"/>`;
+    } else if (b.shape === "faceted") {
+      const r = b.size;
+      const pts: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        pts.push(`${(b.x + Math.cos(a) * r).toFixed(2)},${(b.y + Math.sin(a) * r).toFixed(2)}`);
+      }
+      beadSvg += `<polygon opacity="${b.opacity}" points="${pts.join(" ")}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.5" stroke-width="0.5"/>`;
+    } else {
+      beadSvg += `<circle opacity="${b.opacity}" cx="${b.x}" cy="${b.y}" r="${b.size}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.35" stroke-width="0.4"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><defs>${defs}</defs><rect width="100%" height="100%" fill="#f0e9d8"/>${cords}${beadSvg}</svg>`;
+}
+
+
+
+
 
 function slug(t: string) {
   return (t || "untitled").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 32) || "untitled";
