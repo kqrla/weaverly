@@ -113,7 +113,7 @@ const FAMILY_MIX: Record<BeadFamily, { shapes: BeadShape[]; materials: BeadMater
   loom:      { shapes: ["seed"],                      materials: ["glass"],                        finishes: ["gloss", "matte"] },
   fringe:    { shapes: ["seed", "bugle", "drop"],    materials: ["glass", "crystal", "metallic"], finishes: ["gloss", "iridescent"] },
   medallion: { shapes: ["round", "faceted", "seed"], materials: ["glass", "crystal", "metallic"], finishes: ["gloss", "iridescent"] },
-  rosette:   { shapes: ["round", "drop", "seed"],    materials: ["glass", "pearl", "ceramic"],    finishes: ["gloss", "matte"] },
+  rosette:   { shapes: ["round", "drop", "seed", "pearl"], materials: ["glass", "ceramic"],        finishes: ["gloss", "matte"] },
   netted:    { shapes: ["seed", "round"],            materials: ["glass", "crystal"],             finishes: ["gloss", "translucent"] },
   freeform:  { shapes: ["round", "drop", "faceted"], materials: ["gemstone", "glass", "wood"],    finishes: ["matte", "gloss", "iridescent"] },
 };
@@ -424,7 +424,7 @@ function buildRosette(r: () => number, w: number, h: number, density: number, sy
   const centerCount = 7;
   for (let i = 0; i < centerCount; i++) {
     const t = (i / centerCount) * Math.PI * 2;
-    beads.push(makeBead(id++, cx + Math.cos(t) * 6, cy + Math.sin(t) * 6, 7, palette[2], "round", "pearl", "gloss", 0, i));
+    beads.push(makeBead(id++, cx + Math.cos(t) * 6, cy + Math.sin(t) * 6, 7, palette[2], "pearl", "glass", "gloss", 0, i));
   }
   beads.push(makeBead(id++, cx, cy, 9, palette[1], "faceted", "crystal", "iridescent", 0, centerCount));
   strands.push({ id: 0, kind: "ring", path: [{ x: cx, y: cy }], closed: true });
