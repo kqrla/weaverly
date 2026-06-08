@@ -10,11 +10,13 @@ import { generate, gridToString, PALETTES, SUPPORTED_WORDS, type StyleKey } from
 import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/lib/cross-stitch";
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
+import { generateBeadwork, beadworkToAscii, type BeadworkArtifact, type BeadFamily } from "@/lib/beadwork";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
+import { BeadCanvas } from "@/components/bead-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
@@ -40,11 +42,15 @@ export function Loom() {
   const [laceFamily, setLaceFamily] = useState<LaceFamily | "auto">("auto");
   const [laceSize, setLaceSize] = useState(560);
   const [showLaceNodes, setShowLaceNodes] = useState(true);
+  const [beadFamily, setBeadFamily] = useState<BeadFamily | "auto">("auto");
+  const [beadSize, setBeadSizeState] = useState(640);
+  const [showCords, setShowCords] = useState(true);
   const preRef = useRef<HTMLPreElement>(null);
 
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
   const isLace = style === "lace";
+  const isBeadwork = style === "beadwork";
 
 
 
@@ -166,39 +172,57 @@ export function Loom() {
     [isLace, engineSeed, density, symmetry, laceFamily, semantic],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
+  // dedicated beadwork engine — physical bead assembly with strands.
+  // auto-routes by motif: rose → rosette, snowflake → medallion,
+  // forest → freeform, mesh/web → netted, etc.
+  const beadwork: BeadworkArtifact | null = useMemo(
+    () =>
+      isBeadwork
+        ? generateBeadwork({
+            text: engineSeed,
+            density,
+            family: beadFamily === "auto" ? undefined : beadFamily,
+            motifs: semantic?.motifs ?? [],
+          })
+        : null,
+    [isBeadwork, engineSeed, density, beadFamily, semantic],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace || isBeadwork ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch || isWoven
     ? cols * rows
     : isLace
       ? (lace?.edges.length ?? 0)
-      : asciiResult.grid.flat().length;
+      : isBeadwork
+        ? (beadwork?.beads.length ?? 0)
+        : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      // lace blooms more slowly than a stitch ticks, so we throttle the
-      // step when in lace mode — otherwise the whole network appears in
-      // a single frame on small graphs.
-      const step = isLace ? Math.max(1, Math.round(speed / 6)) : speed;
+      // lace and beadwork assemble more slowly than a stitch ticks —
+      // throttle so the viewer sees individual loops / beads thread on
+      // rather than the whole artifact appearing in a single frame.
+      const step = isLace || isBeadwork ? Math.max(1, Math.round(speed / 4)) : speed;
       setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total, speed, isLace]);
+  }, [playing, total, speed, isLace, isBeadwork]);
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for legacy (ascii/beadwork) modes
+  // ascii display string for the legacy ascii engine only
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven || isLace) return "";
+    if (isCrossStitch || isWoven || isLace || isBeadwork) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -210,7 +234,7 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, isLace, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, isBeadwork, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
@@ -219,7 +243,9 @@ export function Loom() {
         ? draftToAscii(draft!)
         : isLace
           ? laceToAscii(lace!)
-          : gridToString(asciiResult.grid);
+          : isBeadwork
+            ? beadworkToAscii(beadwork!)
+            : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -236,6 +262,11 @@ export function Loom() {
     }
     if (isLace && lace) {
       const svg = laceToSvg(lace, laceSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isBeadwork && beadwork) {
+      const svg = beadworkToSvg(beadwork);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -265,7 +296,9 @@ export function Loom() {
           ? draftToAscii(draft!)
           : isLace
             ? laceToAscii(lace!)
-            : gridToString(asciiResult.grid),
+            : isBeadwork
+              ? beadworkToAscii(beadwork!)
+              : gridToString(asciiResult.grid),
       "text/plain",
     );
 
@@ -361,10 +394,10 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && !isWoven && !isLace && (
+          {!isCrossStitch && !isWoven && !isLace && !isBeadwork && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              ascii/beadwork still use the legacy glyph grid and will be replaced with
-              their own grammars next.
+              ascii still uses the legacy glyph grid. cross-stitch, weaving, lace,
+              and beadwork each run on their own dedicated craft engine.
             </p>
           )}
 
@@ -540,6 +573,58 @@ export function Loom() {
           </>
         )}
 
+        {isBeadwork && (
+          <>
+            <Field label="bead grammar">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "bracelet", "loom", "fringe", "medallion", "rosette", "netted", "freeform"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setBeadFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      beadFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {beadwork && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  strung as <span className="marker font-medium">{beadwork.family}</span> ·
+                  {" "}{beadwork.strands.length} strand{beadwork.strands.length === 1 ? "" : "s"} ·
+                  {" "}{beadwork.beads.length} beads
+                </p>
+              )}
+            </Field>
+            <Field label={`canvas size · ${beadSize}px`}>
+              <input
+                type="range"
+                min={420}
+                max={820}
+                step={20}
+                value={beadSize}
+                onChange={(e) => setBeadSizeState(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showCords}
+                onChange={(e) => setShowCords(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show threading cords
+            </label>
+          </>
+        )}
+
+
+
+
 
 
 
@@ -681,6 +766,15 @@ export function Loom() {
               />
             </div>
 
+          ) : isBeadwork && beadwork ? (
+            <div className="flex items-center justify-center overflow-auto p-6">
+              <BeadCanvas
+                artifact={beadwork}
+                revealed={revealed}
+                size={beadSize}
+                showCords={showCords}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
@@ -896,6 +990,45 @@ function laceToSvg(g: LaceGraph, size: number): string {
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}"><rect width="100%" height="100%" fill="#f0e9d8"/>${threads}${nodes}</svg>`;
 }
+
+
+// vector export of a beadwork artifact — cords as polylines, beads as
+// gradient-filled circles / drops / bugles. mirrors BeadCanvas so the
+// downloaded svg matches what's drawn on screen.
+function beadworkToSvg(art: BeadworkArtifact): string {
+  const { width: w, height: h, beads, strands } = art;
+  let cords = "";
+  for (const s of strands) {
+    if (s.path.length < 2) continue;
+    const d = s.path.map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+    cords += `<path d="${d}${s.closed ? " Z" : ""}" fill="none" stroke="#262532" stroke-opacity="${s.kind === "fringe" ? 0.4 : 0.5}" stroke-width="0.9" stroke-linecap="round"/>`;
+  }
+  let beadSvg = "";
+  let defs = "";
+  for (const b of beads) {
+    const gid = `bg${b.id}`;
+    const hl = b.finish === "matte" ? 0.15 : b.finish === "iridescent" ? 0.7 : 0.45;
+    defs += `<radialGradient id="${gid}" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffffff" stop-opacity="${hl}"/><stop offset="40%" stop-color="${b.color}"/><stop offset="100%" stop-color="#000000" stop-opacity="0.25"/></radialGradient>`;
+    if (b.shape === "drop") {
+      beadSvg += `<path opacity="${b.opacity}" d="M${b.x},${b.y - b.size * 1.4} C${b.x + b.size},${b.y - b.size * 0.6} ${b.x + b.size},${b.y + b.size * 0.4} ${b.x},${b.y + b.size * 1.1} C${b.x - b.size},${b.y + b.size * 0.4} ${b.x - b.size},${b.y - b.size * 0.6} ${b.x},${b.y - b.size * 1.4} Z" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.4" stroke-width="0.5"/>`;
+    } else if (b.shape === "bugle") {
+      beadSvg += `<rect opacity="${b.opacity}" x="${b.x - b.size * 1.6}" y="${b.y - b.size * 0.55}" width="${b.size * 3.2}" height="${b.size * 1.1}" rx="${b.size * 0.4}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.4" stroke-width="0.5"/>`;
+    } else if (b.shape === "faceted") {
+      const r = b.size;
+      const pts: string[] = [];
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 - Math.PI / 2;
+        pts.push(`${(b.x + Math.cos(a) * r).toFixed(2)},${(b.y + Math.sin(a) * r).toFixed(2)}`);
+      }
+      beadSvg += `<polygon opacity="${b.opacity}" points="${pts.join(" ")}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.5" stroke-width="0.5"/>`;
+    } else {
+      beadSvg += `<circle opacity="${b.opacity}" cx="${b.x}" cy="${b.y}" r="${b.size}" fill="url(#${gid})" stroke="${b.color}" stroke-opacity="0.35" stroke-width="0.4"/>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><defs>${defs}</defs><rect width="100%" height="100%" fill="#f0e9d8"/>${cords}${beadSvg}</svg>`;
+}
+
+
 
 
 
