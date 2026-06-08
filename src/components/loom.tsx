@@ -172,27 +172,45 @@ export function Loom() {
     [isLace, engineSeed, density, symmetry, laceFamily, semantic],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace ? null : asciiResult.shapeKey;
+  // dedicated beadwork engine — physical bead assembly with strands.
+  // auto-routes by motif: rose → rosette, snowflake → medallion,
+  // forest → freeform, mesh/web → netted, etc.
+  const beadwork: BeadworkArtifact | null = useMemo(
+    () =>
+      isBeadwork
+        ? generateBeadwork({
+            text: engineSeed,
+            density,
+            family: beadFamily === "auto" ? undefined : beadFamily,
+            motifs: semantic?.motifs ?? [],
+          })
+        : null,
+    [isBeadwork, engineSeed, density, beadFamily, semantic],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace || isBeadwork ? null : asciiResult.shapeKey;
   const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch || isWoven
     ? cols * rows
     : isLace
       ? (lace?.edges.length ?? 0)
-      : asciiResult.grid.flat().length;
+      : isBeadwork
+        ? (beadwork?.beads.length ?? 0)
+        : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      // lace blooms more slowly than a stitch ticks, so we throttle the
-      // step when in lace mode — otherwise the whole network appears in
-      // a single frame on small graphs.
-      const step = isLace ? Math.max(1, Math.round(speed / 6)) : speed;
+      // lace and beadwork assemble more slowly than a stitch ticks —
+      // throttle so the viewer sees individual loops / beads thread on
+      // rather than the whole artifact appearing in a single frame.
+      const step = isLace || isBeadwork ? Math.max(1, Math.round(speed / 4)) : speed;
       setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
     };
