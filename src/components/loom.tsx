@@ -216,13 +216,13 @@ export function Loom() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, total, speed, isLace]);
+  }, [playing, total, speed, isLace, isBeadwork]);
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for legacy (ascii/beadwork) modes
+  // ascii display string for the legacy ascii engine only
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven || isLace) return "";
+    if (isCrossStitch || isWoven || isLace || isBeadwork) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -234,7 +234,7 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, isLace, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, isBeadwork, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
@@ -243,7 +243,9 @@ export function Loom() {
         ? draftToAscii(draft!)
         : isLace
           ? laceToAscii(lace!)
-          : gridToString(asciiResult.grid);
+          : isBeadwork
+            ? beadworkToAscii(beadwork!)
+            : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -260,6 +262,11 @@ export function Loom() {
     }
     if (isLace && lace) {
       const svg = laceToSvg(lace, laceSize);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isBeadwork && beadwork) {
+      const svg = beadworkToSvg(beadwork);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -289,7 +296,9 @@ export function Loom() {
           ? draftToAscii(draft!)
           : isLace
             ? laceToAscii(lace!)
-            : gridToString(asciiResult.grid),
+            : isBeadwork
+              ? beadworkToAscii(beadwork!)
+              : gridToString(asciiResult.grid),
       "text/plain",
     );
 
