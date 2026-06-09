@@ -176,6 +176,33 @@ export function LaceCanvas({ graph, revealed, size = 560, showNodes = true }: Pr
                     </g>
                   );
                 }
+                if (n.kind === "boundary") {
+                  // small open ring on the perimeter — scallop endpoint
+                  return (
+                    <circle
+                      key={n.id}
+                      cx={N.x}
+                      cy={N.y}
+                      r={N.r}
+                      fill="none"
+                      stroke="var(--color-ink)"
+                      strokeWidth={1}
+                    />
+                  );
+                }
+                if (n.kind === "motif") {
+                  return (
+                    <circle
+                      key={n.id}
+                      cx={N.x}
+                      cy={N.y}
+                      r={N.r * 0.8}
+                      fill="color-mix(in oklab, var(--color-ember) 50%, var(--color-background))"
+                      stroke="var(--color-ink)"
+                      strokeWidth={0.8}
+                    />
+                  );
+                }
                 // knot / junction — solid dot
                 return (
                   <circle
