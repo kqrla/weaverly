@@ -62,14 +62,18 @@ export function LaceCanvas({ graph, revealed, size = 560, showNodes = true }: Pr
           const C = to(c);
           const stroke =
             e.kind === "loop-link"
-              ? { strokeOpacity: 0.7, strokeWidth: 1.4 }
+              ? { strokeOpacity: 0.7, strokeWidth: 1.3 }
               : e.kind === "branch"
-                ? { strokeOpacity: 0.55, strokeWidth: 0.9 }
+                ? { strokeOpacity: 0.5, strokeWidth: 0.85 }
                 : e.kind === "stem"
-                  ? { strokeOpacity: 0.9, strokeWidth: 1.6 }
+                  ? { strokeOpacity: 0.9, strokeWidth: 1.5 }
                   : e.kind === "arc"
-                    ? { strokeOpacity: 0.75, strokeWidth: 1.1 }
-                    : { strokeOpacity: 0.8, strokeWidth: 1.1 };
+                    ? { strokeOpacity: 0.75, strokeWidth: 1.0 }
+                    : e.kind === "scallop"
+                      ? { strokeOpacity: 0.85, strokeWidth: 1.2 }
+                      : e.kind === "motif-link"
+                        ? { strokeOpacity: 0.6, strokeWidth: 0.7 }
+                        : { strokeOpacity: 0.8, strokeWidth: 1.0 };
           if (e.c1 && e.c2) {
             const C1 = {
               x: margin + ((e.c1.x + 1) / 2) * inner,
@@ -170,6 +174,33 @@ export function LaceCanvas({ graph, revealed, size = 560, showNodes = true }: Pr
                       />
                       <circle cx={N.x} cy={N.y} r={N.r * 0.4} fill="var(--color-ember)" />
                     </g>
+                  );
+                }
+                if (n.kind === "boundary") {
+                  // small open ring on the perimeter — scallop endpoint
+                  return (
+                    <circle
+                      key={n.id}
+                      cx={N.x}
+                      cy={N.y}
+                      r={N.r}
+                      fill="none"
+                      stroke="var(--color-ink)"
+                      strokeWidth={1}
+                    />
+                  );
+                }
+                if (n.kind === "motif") {
+                  return (
+                    <circle
+                      key={n.id}
+                      cx={N.x}
+                      cy={N.y}
+                      r={N.r * 0.8}
+                      fill="color-mix(in oklab, var(--color-ember) 50%, var(--color-background))"
+                      stroke="var(--color-ink)"
+                      strokeWidth={0.8}
+                    />
                   );
                 }
                 // knot / junction — solid dot
