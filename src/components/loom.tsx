@@ -11,12 +11,21 @@ import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { generateBeadwork, beadworkToAscii, type BeadworkArtifact, type BeadFamily } from "@/lib/beadwork";
+import {
+  generateAscii,
+  asciiToText,
+  routeFamily as routeAsciiFamily,
+  type AsciiArtifact,
+  type AsciiFamily,
+  type CharsetKey as AsciiCharset,
+} from "@/lib/ascii";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
 import { BeadCanvas } from "@/components/bead-canvas";
+import { AsciiCanvas } from "@/components/ascii-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
