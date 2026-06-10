@@ -203,7 +203,41 @@ export function Loom() {
     [isBeadwork, engineSeed, density, beadFamily, semantic],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace || isBeadwork ? null : asciiResult.shapeKey;
+  // dedicated pixel ascii engine — strict monospace grid, density ramps,
+  // semantic family routing (proper names → monogram; storm → ansi;
+  // forest/library → pixel-glyph; calm/abstract → poetry).
+  const resolvedAsciiFamily: AsciiFamily = useMemo(() => {
+    if (asciiFamily !== "auto") return asciiFamily;
+    if (!semantic) return "classic";
+    return routeAsciiFamily({
+      kind: semantic.kind,
+      motifs: semantic.motifs,
+      concept: semantic.concept,
+    });
+  }, [asciiFamily, semantic]);
+
+  const ascii: AsciiArtifact | null = useMemo(
+    () =>
+      isAscii
+        ? generateAscii({
+            text: engineSeed,
+            family: resolvedAsciiFamily,
+            charset: asciiCharset,
+            customRamp:
+              asciiCharset === "custom"
+                ? customRamp.split(/\s+/).filter(Boolean)
+                : undefined,
+            cols,
+            rows,
+            density,
+            motifs: semantic?.motifs ?? [],
+            concept: semantic?.concept ?? null,
+          })
+        : null,
+    [isAscii, engineSeed, resolvedAsciiFamily, asciiCharset, customRamp, cols, rows, density, semantic],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : null;
   const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch || isWoven
     ? cols * rows
@@ -211,7 +245,9 @@ export function Loom() {
       ? (lace?.edges.length ?? 0)
       : isBeadwork
         ? (beadwork?.beads.length ?? 0)
-        : asciiResult.grid.flat().length;
+        : isAscii
+          ? (ascii?.order.length ?? cols * rows)
+          : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
