@@ -1192,3 +1192,25 @@ function download(name: string, content: string, type: string) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// vector export of a pixel ascii artifact — renders each cell as a
+// monospace <text> in a rigid grid. monospace integrity is preserved
+// by snapping every glyph to the same advance width.
+function asciiToSvg(art: AsciiArtifact, fontSize: number): string {
+  const cw = Math.round(fontSize * 0.62);
+  const ch = Math.round(fontSize * 1.05);
+  const pad = fontSize;
+  const w = art.cols * cw + pad * 2;
+  const h = art.rows * ch + pad * 2;
+  let cells = "";
+  for (let y = 0; y < art.rows; y++) {
+    for (let x = 0; x < art.cols; x++) {
+      const g = art.cells[y][x];
+      if (!g || g === " ") continue;
+      const px = pad + x * cw + cw / 2;
+      const py = pad + y * ch + ch * 0.78;
+      cells += `<text x="${px}" y="${py}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${fontSize}">${escapeXml(g)}</text>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f5efe1"/><g fill="#262532">${cells}</g></svg>`;
+}
