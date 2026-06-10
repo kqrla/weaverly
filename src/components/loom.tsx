@@ -54,8 +54,14 @@ export function Loom() {
   const [beadFamily, setBeadFamily] = useState<BeadFamily | "auto">("auto");
   const [beadSize, setBeadSizeState] = useState(640);
   const [showCords, setShowCords] = useState(true);
+  const [asciiFamily, setAsciiFamily] = useState<AsciiFamily | "auto">("auto");
+  const [asciiCharset, setAsciiCharset] = useState<AsciiCharset>("standard");
+  const [asciiFontSize, setAsciiFontSize] = useState(16);
+  const [showAsciiGrid, setShowAsciiGrid] = useState(false);
+  const [customRamp, setCustomRamp] = useState(". : + * # @");
   const preRef = useRef<HTMLPreElement>(null);
 
+  const isAscii = style === "ascii";
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
   const isLace = style === "lace";
