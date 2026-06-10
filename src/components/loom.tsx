@@ -910,6 +910,16 @@ export function Loom() {
                 showCords={showCords}
               />
             </div>
+          ) : isAscii && ascii ? (
+            <div className="flex items-center justify-center overflow-auto p-6" style={{ minHeight: 540 }}>
+              <AsciiCanvas
+                artifact={ascii}
+                revealed={revealed}
+                fontSize={asciiFontSize}
+                showGrid={showAsciiGrid}
+                inkColor={palette.ink}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
