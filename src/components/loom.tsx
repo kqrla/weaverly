@@ -453,14 +453,90 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && !isWoven && !isLace && !isBeadwork && (
+          {isAscii && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              ascii still uses the legacy glyph grid. cross-stitch, weaving, lace,
-              and beadwork each run on their own dedicated craft engine.
+              the pixel ascii engine treats the monospace grid as the
+              medium — every cell is exactly one glyph; meaning emerges
+              from density, hierarchy, and rhythm.
             </p>
           )}
-
         </Field>
+
+        {isAscii && (
+          <>
+            <Field label="ascii family">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "classic", "ansi", "pixel-glyph", "textile", "monogram", "poetry"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAsciiFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      asciiFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {ascii && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  composed in <span className="marker font-medium">{ascii.family}</span> ·
+                  {" "}charset <span className="font-mono">{ascii.charset}</span> ·
+                  {" "}{ascii.ramp.length} weight steps · {ascii.cols}×{ascii.rows} cells
+                </p>
+              )}
+            </Field>
+
+            <Field label="character set">
+              <div className="grid grid-cols-3 gap-2">
+                {(["minimal", "standard", "blocks", "geometric", "braille", "custom"] as AsciiCharset[]).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setAsciiCharset(c)}
+                    className={`rounded-md border px-2 py-1.5 text-[11px] transition ${
+                      asciiCharset === c
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {asciiCharset === "custom" && (
+                <input
+                  value={customRamp}
+                  onChange={(e) => setCustomRamp(e.target.value)}
+                  placeholder="light → heavy, space-separated"
+                  className="mt-2 w-full rounded-md border border-ink bg-background px-2 py-1.5 font-mono text-xs"
+                />
+              )}
+            </Field>
+
+            <Field label={`font size · ${asciiFontSize}px`}>
+              <input
+                type="range"
+                min={10}
+                max={28}
+                value={asciiFontSize}
+                onChange={(e) => setAsciiFontSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showAsciiGrid}
+                onChange={(e) => setShowAsciiGrid(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show monospace cells
+            </label>
+          </>
+        )}
 
 
         <Field label={`density · ${(density * 100).toFixed(0)}%`}>
