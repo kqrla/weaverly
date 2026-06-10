@@ -251,16 +251,13 @@ export function Loom() {
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily, asciiFamily, asciiCharset]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      // lace and beadwork assemble more slowly than a stitch ticks —
-      // throttle so the viewer sees individual loops / beads thread on
-      // rather than the whole artifact appearing in a single frame.
       const step = isLace || isBeadwork ? Math.max(1, Math.round(speed / 4)) : speed;
       setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
