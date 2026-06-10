@@ -268,9 +268,11 @@ export function Loom() {
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for the legacy ascii engine only
+  // legacy ascii display only kicks in when the new pixel ascii engine
+  // hasn't produced an artifact yet — otherwise the dedicated engine
+  // owns the surface and the AsciiCanvas does its own reveal masking.
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven || isLace || isBeadwork) return "";
+    if (isCrossStitch || isWoven || isLace || isBeadwork || isAscii) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -282,7 +284,7 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, isLace, isBeadwork, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, isBeadwork, isAscii, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
@@ -293,7 +295,9 @@ export function Loom() {
           ? laceToAscii(lace!)
           : isBeadwork
             ? beadworkToAscii(beadwork!)
-            : gridToString(asciiResult.grid);
+            : isAscii && ascii
+              ? asciiToText(ascii)
+              : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -315,6 +319,11 @@ export function Loom() {
     }
     if (isBeadwork && beadwork) {
       const svg = beadworkToSvg(beadwork);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isAscii && ascii) {
+      const svg = asciiToSvg(ascii, asciiFontSize);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -346,7 +355,9 @@ export function Loom() {
             ? laceToAscii(lace!)
             : isBeadwork
               ? beadworkToAscii(beadwork!)
-              : gridToString(asciiResult.grid),
+              : isAscii && ascii
+                ? asciiToText(ascii)
+                : gridToString(asciiResult.grid),
       "text/plain",
     );
 
