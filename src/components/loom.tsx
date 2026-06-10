@@ -11,12 +11,21 @@ import { generateCrossStitch, type CrossStitchChart, type BorderStyle } from "@/
 import { generateWeave, draftToAscii, type WeaveDraft, type WeaveType } from "@/lib/weaving";
 import { generateLace, laceToAscii, type LaceGraph, type LaceFamily } from "@/lib/lace";
 import { generateBeadwork, beadworkToAscii, type BeadworkArtifact, type BeadFamily } from "@/lib/beadwork";
+import {
+  generateAscii,
+  asciiToText,
+  routeFamily as routeAsciiFamily,
+  type AsciiArtifact,
+  type AsciiFamily,
+  type CharsetKey as AsciiCharset,
+} from "@/lib/ascii";
 import { interpretShape } from "@/lib/shape-ai.functions";
 import { interpretSeed, type SemanticReading } from "@/lib/semantic.functions";
 import { StitchGrid } from "@/components/stitch-grid";
 import { WeaveGrid } from "@/components/weave-grid";
 import { LaceCanvas } from "@/components/lace-canvas";
 import { BeadCanvas } from "@/components/bead-canvas";
+import { AsciiCanvas } from "@/components/ascii-canvas";
 
 type Sym = "none" | "mirror-x" | "mirror-y" | "quad";
 
@@ -45,8 +54,14 @@ export function Loom() {
   const [beadFamily, setBeadFamily] = useState<BeadFamily | "auto">("auto");
   const [beadSize, setBeadSizeState] = useState(640);
   const [showCords, setShowCords] = useState(true);
+  const [asciiFamily, setAsciiFamily] = useState<AsciiFamily | "auto">("auto");
+  const [asciiCharset, setAsciiCharset] = useState<AsciiCharset>("standard");
+  const [asciiFontSize, setAsciiFontSize] = useState(16);
+  const [showAsciiGrid, setShowAsciiGrid] = useState(false);
+  const [customRamp, setCustomRamp] = useState(". : + * # @");
   const preRef = useRef<HTMLPreElement>(null);
 
+  const isAscii = style === "ascii";
   const isCrossStitch = style === "cross-stitch";
   const isWoven = style === "woven";
   const isLace = style === "lace";
@@ -188,7 +203,41 @@ export function Loom() {
     [isBeadwork, engineSeed, density, beadFamily, semantic],
   );
 
-  const shapeKey = isCrossStitch ? chart!.shapeKey : isWoven || isLace || isBeadwork ? null : asciiResult.shapeKey;
+  // dedicated pixel ascii engine — strict monospace grid, density ramps,
+  // semantic family routing (proper names → monogram; storm → ansi;
+  // forest/library → pixel-glyph; calm/abstract → poetry).
+  const resolvedAsciiFamily: AsciiFamily = useMemo(() => {
+    if (asciiFamily !== "auto") return asciiFamily;
+    if (!semantic) return "classic";
+    return routeAsciiFamily({
+      kind: semantic.kind,
+      motifs: semantic.motifs,
+      concept: semantic.concept,
+    });
+  }, [asciiFamily, semantic]);
+
+  const ascii: AsciiArtifact | null = useMemo(
+    () =>
+      isAscii
+        ? generateAscii({
+            text: engineSeed,
+            family: resolvedAsciiFamily,
+            charset: asciiCharset,
+            customRamp:
+              asciiCharset === "custom"
+                ? customRamp.split(/\s+/).filter(Boolean)
+                : undefined,
+            cols,
+            rows,
+            density,
+            motifs: semantic?.motifs ?? [],
+            concept: semantic?.concept ?? null,
+          })
+        : null,
+    [isAscii, engineSeed, resolvedAsciiFamily, asciiCharset, customRamp, cols, rows, density, semantic],
+  );
+
+  const shapeKey = isCrossStitch ? chart!.shapeKey : null;
   const chartSource = isCrossStitch ? chart!.source : null;
   const total = isCrossStitch || isWoven
     ? cols * rows
@@ -196,20 +245,19 @@ export function Loom() {
       ? (lace?.edges.length ?? 0)
       : isBeadwork
         ? (beadwork?.beads.length ?? 0)
-        : asciiResult.grid.flat().length;
+        : isAscii
+          ? (ascii?.order.length ?? cols * rows)
+          : asciiResult.grid.flat().length;
 
   useEffect(() => {
     setRevealed(0);
-  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily]);
+  }, [text, style, density, symmetry, cols, rows, borderStyle, weaveType, laceFamily, beadFamily, asciiFamily, asciiCharset]);
 
 
   useEffect(() => {
     if (!playing) return;
     let raf = 0;
     const tick = () => {
-      // lace and beadwork assemble more slowly than a stitch ticks —
-      // throttle so the viewer sees individual loops / beads thread on
-      // rather than the whole artifact appearing in a single frame.
       const step = isLace || isBeadwork ? Math.max(1, Math.round(speed / 4)) : speed;
       setRevealed((r) => (r >= total ? r : Math.min(total, r + step)));
       raf = requestAnimationFrame(tick);
@@ -220,9 +268,11 @@ export function Loom() {
 
   const palette = PALETTES[paletteIndex];
 
-  // ascii display string for the legacy ascii engine only
+  // legacy ascii display only kicks in when the new pixel ascii engine
+  // hasn't produced an artifact yet — otherwise the dedicated engine
+  // owns the surface and the AsciiCanvas does its own reveal masking.
   const asciiDisplay = useMemo(() => {
-    if (isCrossStitch || isWoven || isLace || isBeadwork) return "";
+    if (isCrossStitch || isWoven || isLace || isBeadwork || isAscii) return "";
     const flat = asciiResult.grid.flat();
     const out: string[] = [];
     for (let y = 0; y < rows; y++) {
@@ -234,7 +284,7 @@ export function Loom() {
       out.push(row.join(" "));
     }
     return out.join("\n");
-  }, [isCrossStitch, isWoven, isLace, isBeadwork, asciiResult, revealed, rows, cols]);
+  }, [isCrossStitch, isWoven, isLace, isBeadwork, isAscii, asciiResult, revealed, rows, cols]);
 
   const copyText = async () => {
     const content = isCrossStitch
@@ -245,7 +295,9 @@ export function Loom() {
           ? laceToAscii(lace!)
           : isBeadwork
             ? beadworkToAscii(beadwork!)
-            : gridToString(asciiResult.grid);
+            : isAscii && ascii
+              ? asciiToText(ascii)
+              : gridToString(asciiResult.grid);
     await navigator.clipboard.writeText(content);
   };
 
@@ -267,6 +319,11 @@ export function Loom() {
     }
     if (isBeadwork && beadwork) {
       const svg = beadworkToSvg(beadwork);
+      download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
+      return;
+    }
+    if (isAscii && ascii) {
+      const svg = asciiToSvg(ascii, asciiFontSize);
       download(`weaverly-${slug(text)}.svg`, svg, "image/svg+xml");
       return;
     }
@@ -298,7 +355,9 @@ export function Loom() {
             ? laceToAscii(lace!)
             : isBeadwork
               ? beadworkToAscii(beadwork!)
-              : gridToString(asciiResult.grid),
+              : isAscii && ascii
+                ? asciiToText(ascii)
+                : gridToString(asciiResult.grid),
       "text/plain",
     );
 
@@ -394,14 +453,90 @@ export function Loom() {
               </button>
             ))}
           </div>
-          {!isCrossStitch && !isWoven && !isLace && !isBeadwork && (
+          {isAscii && (
             <p className="mt-2 text-[11px] leading-snug text-ink/55">
-              ascii still uses the legacy glyph grid. cross-stitch, weaving, lace,
-              and beadwork each run on their own dedicated craft engine.
+              the pixel ascii engine treats the monospace grid as the
+              medium — every cell is exactly one glyph; meaning emerges
+              from density, hierarchy, and rhythm.
             </p>
           )}
-
         </Field>
+
+        {isAscii && (
+          <>
+            <Field label="ascii family">
+              <div className="grid grid-cols-2 gap-2">
+                {(["auto", "classic", "ansi", "pixel-glyph", "textile", "monogram", "poetry"] as const).map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setAsciiFamily(f)}
+                    className={`rounded-md border px-2 py-1.5 text-xs transition ${
+                      asciiFamily === f
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+              {ascii && (
+                <p className="mt-2 text-[11px] leading-snug text-ink/65">
+                  composed in <span className="marker font-medium">{ascii.family}</span> ·
+                  {" "}charset <span className="font-mono">{ascii.charset}</span> ·
+                  {" "}{ascii.ramp.length} weight steps · {ascii.cols}×{ascii.rows} cells
+                </p>
+              )}
+            </Field>
+
+            <Field label="character set">
+              <div className="grid grid-cols-3 gap-2">
+                {(["minimal", "standard", "blocks", "geometric", "braille", "custom"] as AsciiCharset[]).map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => setAsciiCharset(c)}
+                    className={`rounded-md border px-2 py-1.5 text-[11px] transition ${
+                      asciiCharset === c
+                        ? "border-ink bg-primary text-primary-foreground"
+                        : "border-ink/40 hover:bg-stripe/40"
+                    }`}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {asciiCharset === "custom" && (
+                <input
+                  value={customRamp}
+                  onChange={(e) => setCustomRamp(e.target.value)}
+                  placeholder="light → heavy, space-separated"
+                  className="mt-2 w-full rounded-md border border-ink bg-background px-2 py-1.5 font-mono text-xs"
+                />
+              )}
+            </Field>
+
+            <Field label={`font size · ${asciiFontSize}px`}>
+              <input
+                type="range"
+                min={10}
+                max={28}
+                value={asciiFontSize}
+                onChange={(e) => setAsciiFontSize(parseInt(e.target.value))}
+                className="w-full accent-primary"
+              />
+            </Field>
+
+            <label className="flex items-center gap-2 text-xs text-ink/80">
+              <input
+                type="checkbox"
+                checked={showAsciiGrid}
+                onChange={(e) => setShowAsciiGrid(e.target.checked)}
+                className="h-3.5 w-3.5 accent-primary"
+              />
+              show monospace cells
+            </label>
+          </>
+        )}
 
 
         <Field label={`density · ${(density * 100).toFixed(0)}%`}>
@@ -775,6 +910,16 @@ export function Loom() {
                 showCords={showCords}
               />
             </div>
+          ) : isAscii && ascii ? (
+            <div className="flex items-center justify-center overflow-auto p-6" style={{ minHeight: 540 }}>
+              <AsciiCanvas
+                artifact={ascii}
+                revealed={revealed}
+                fontSize={asciiFontSize}
+                showGrid={showAsciiGrid}
+                inkColor={palette.ink}
+              />
+            </div>
           ) : (
             <pre
               ref={preRef}
@@ -1046,4 +1191,26 @@ function download(name: string, content: string, type: string) {
   a.download = name;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// vector export of a pixel ascii artifact — renders each cell as a
+// monospace <text> in a rigid grid. monospace integrity is preserved
+// by snapping every glyph to the same advance width.
+function asciiToSvg(art: AsciiArtifact, fontSize: number): string {
+  const cw = Math.round(fontSize * 0.62);
+  const ch = Math.round(fontSize * 1.05);
+  const pad = fontSize;
+  const w = art.cols * cw + pad * 2;
+  const h = art.rows * ch + pad * 2;
+  let cells = "";
+  for (let y = 0; y < art.rows; y++) {
+    for (let x = 0; x < art.cols; x++) {
+      const g = art.cells[y][x];
+      if (!g || g === " ") continue;
+      const px = pad + x * cw + cw / 2;
+      const py = pad + y * ch + ch * 0.78;
+      cells += `<text x="${px}" y="${py}" text-anchor="middle" font-family="ui-monospace, Menlo, Consolas, monospace" font-size="${fontSize}">${escapeXml(g)}</text>`;
+    }
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><rect width="100%" height="100%" fill="#f5efe1"/><g fill="#262532">${cells}</g></svg>`;
 }
